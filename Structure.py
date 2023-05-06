@@ -13,7 +13,6 @@ class DBManager:
     def loadDB(self):
         with open('ServerDB.DB','rb') as RDB:
             self.ServerDB=pickle.load(RDB)
-        print(type( self.ServerDB))
         return 'Done'
 
     def CreatDB(self):

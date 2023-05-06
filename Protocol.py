@@ -124,12 +124,11 @@ class HyperTextTransferProtocol:
         return PrepareHeader()._response_headers(Response_file) + Response_file.encode('utf-8')
     
     def ImgFileUpload(self,img_file,file_name):
-        self.DB.loadDB()
-        with open(f'resource/ImgFileUpload{file_name}', 'wb') as ImgFile:
+        #self.DB.loadDB()
+        with open(f'resource/ImgFileUpload/{file_name}', 'wb') as ImgFile:
             ImgFile.write(img_file)
             self.DB.ServerDB['Img']={file_name:f'/ImgFileUpload/{file_name}'}
-            print(self.DB.ServerDB)
-            self.DB.SaveDB()
+            #self.DB.SaveDB()
             return file_name
         
         
