@@ -92,7 +92,6 @@ class HyperTextTransferProtocol:
     def send_response(self,query,socket_and_addres):
         addr = f'\033[31m{socket_and_addres[1]}\033[0m'
         socket_and_addres[0][0].send(query)
-        print(query.decode())
         socket_and_addres[0][0].close()
         self.log(msg=f'[Disconnected from] ==> {addr}')
         self.Thread.finished_users.append(socket_and_addres[1])
