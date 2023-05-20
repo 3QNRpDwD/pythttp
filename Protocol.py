@@ -114,7 +114,6 @@ class HyperTextTransferProtocol:
             return Response
         except FileNotFoundError:
             with open('resource/Hello world.html','r') as arg:
-                print(f'해당 resource{result}파일을 찾을수 없습니다.')
                 Error_Response=arg.read().format(msg=f'해당 resource{result}파일을 찾을수 없습니다.').encode('utf-8')
                 return PrepareHeader()._response_headers('404 Not Found',Error_Response) + Error_Response
 
