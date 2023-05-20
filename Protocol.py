@@ -44,7 +44,7 @@ class HyperTextTransferProtocol:
         elif 'POST' in first_line:
             file_name=thread.result[1][1].split('"')[3]
             self.ImgFileUpload(thread.result[2],f'{file_name}')
-            query=self.HandleImgFileRequest(self.DB.ServerDB['Img'][file_name])
+            query=self.HandleFileRequest(self.DB.ServerDB['Img'][file_name])
         else:
             return 'This communication is not HTTP protocol'
         self.send_response(query, socket_and_address)
@@ -92,6 +92,7 @@ class HyperTextTransferProtocol:
     def send_response(self,query,socket_and_addres):
         addr = f'\033[31m{socket_and_addres[1]}\033[0m'
         socket_and_addres[0][0].send(query)
+        #print(query.decode())
         socket_and_addres[0][0].close()
         self.log(msg=f'[Disconnected from] ==> {addr}')
         self.Thread.finished_users.append(socket_and_addres[1])
@@ -113,6 +114,7 @@ class HyperTextTransferProtocol:
             return Response
         except FileNotFoundError:
             with open('resource/Hello world.html','r') as arg:
+                print(f'해당 resource{result}파일을 찾을수 없습니다.')
                 Error_Response=arg.read().format(msg=f'해당 resource{result}파일을 찾을수 없습니다.').encode('utf-8')
                 return PrepareHeader()._response_headers('404 Not Found',Error_Response) + Error_Response
 
@@ -140,3 +142,5 @@ class HyperTextTransferProtocol:
             self.DB.ServerDB['Img']={file_name:f'/ImgFileUpload/{file_name}'}
             #self.DB.SaveDB()
             return file_name
+        
+HyperTextTransferProtocol().start_web_server()
