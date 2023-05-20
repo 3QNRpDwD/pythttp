@@ -44,7 +44,7 @@ class PrepareHeader:
                '\r\n'.join([f'{key}: {value}' for key, value in headers.items()]) + \
                '\r\n\r\n'
 
-    def _response_headers(self,Content):
+    def _response_headers(self,status_code,Content):
         headers = {
             'Date': HttpDateTime().http_date_time,
             'Server':'longinus',
@@ -52,7 +52,7 @@ class PrepareHeader:
             'Pragma' : 'no-cache',
             'Content-Length': len(Content)
         }
-        return (f'HTTP/1.1 200 OK\r\n' + \
+        return (f'HTTP/1.1 {status_code}\r\n' + \
         '\r\n'.join([f'{key}: {value}' for key, value in headers.items()]) + \
         '\r\n\r\n').encode()
 

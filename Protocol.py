@@ -15,6 +15,17 @@ class HyperTextTransferProtocol:
         self.Content_Length=''
         self.DB=DBManager()
 
+    def get(self, url: str, port: int = 80, params: dict = None):
+        try:
+            self.s.connect((url, port))
+            headers = PrepareHeader()._prepare_request_headers('GET', url, params)
+            self.s.send(headers.encode())
+            return self.receive()
+        except ConnectionRefusedError as e:
+            print(f'Request to server failed... Reason: {e}')
+        finally:
+            self.s.close()
+
     def start_web_server(self):
         self.bind_address()
         self.listen()
@@ -60,7 +71,7 @@ class HyperTextTransferProtocol:
             if socket is None:
                 received_data += self.c.recv(max_recv_size)
             received_data += socket[0].recv(max_recv_size)
-            header_list=received_data.decode().split('\r\n')
+            header_list=parse.unquote(received_data).split('\r\n')
         if 'POST' in header_list[0]:
             post_header=self.receive(socket,addres)[1]
             post_body=b''
@@ -81,6 +92,7 @@ class HyperTextTransferProtocol:
     def send_response(self,query,socket_and_addres):
         addr = f'\033[31m{socket_and_addres[1]}\033[0m'
         socket_and_addres[0][0].send(query)
+        print(query.decode())
         socket_and_addres[0][0].close()
         self.log(msg=f'[Disconnected from] ==> {addr}')
         self.Thread.finished_users.append(socket_and_addres[1])
@@ -92,19 +104,19 @@ class HyperTextTransferProtocol:
             if '?print=' in result:
                 Response = self.HandleTextFileRequest(query=result.split('=')[1])
             elif '.ico' in result:
-                Response=self.HandleImgFileRequest(result)
+                Response=self.HandleFileRequest(result)
             elif '.html' in result:
                 Response=self.HandleTextFileRequest(result)
             elif '.png' in result:
-                Response= self.HandleImgFileRequest(f'{result}')
+                Response= self.HandleFileRequest(f'{result}')
             elif '/upload_from' == result:
                 Response= self.HandleTextFileRequest('/upload_from.html')
             return Response
         except FileNotFoundError:
-            with open('resource/nofile.html','r') as arg:
+            with open('resource/Hello world.html','r') as arg:
                 print(f'해당 resource{result}파일을 찾을수 없습니다.')
                 Error_Response=arg.read().format(msg=f'해당 resource{result}파일을 찾을수 없습니다.').encode('utf-8')
-                return PrepareHeader()._response_headers(Error_Response) + Error_Response
+                return PrepareHeader()._response_headers('404 Not Found',Error_Response) + Error_Response
 
     def ExtractPostBodySize(self, header):
         content_length_header = next((header for header in header if 'Content-Length' in header), None)
@@ -113,15 +125,15 @@ class HyperTextTransferProtocol:
             return int(content_length_str)
         return 0
         
-    def HandleImgFileRequest(self,img_file='/a.png'):
+    def HandleFileRequest(self,img_file='/a.png'):
         with open(f'resource{img_file}', 'rb') as ImgFile:
             Response_file=ImgFile.read()
-            return PrepareHeader()._response_headers(Response_file) + Response_file
+            return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
         
     def HandleTextFileRequest(self,flie='/Hello world.html', query='아무튼 웹 서버임'):
         with open(f'resource{flie}','r') as TextFile:
-            Response_file=TextFile.read().format(msg=query)
-        return PrepareHeader()._response_headers(Response_file) + Response_file.encode('utf-8')
+            Response_file=TextFile.read().format(msg=query,ImgFiles='<img src="a.png" alt="적당한사진">')
+        return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file.encode('utf-8')
     
     def ImgFileUpload(self,img_file,file_name):
         #self.DB.loadDB()
@@ -130,6 +142,3 @@ class HyperTextTransferProtocol:
             self.DB.ServerDB['Img']={file_name:f'/ImgFileUpload/{file_name}'}
             #self.DB.SaveDB()
             return file_name
-        
-        
-HyperTextTransferProtocol().start_web_server()
