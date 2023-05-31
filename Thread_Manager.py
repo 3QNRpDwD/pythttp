@@ -1,5 +1,5 @@
 import threading
-from Log_Manager import *
+from .Log_Manager import *
 
 
 class THREAD_PRESET(threading.Thread):
@@ -26,8 +26,8 @@ class Thread:
         self.USERS=Thread_DataManager().USERS
         self.SESSIONS=Thread_DataManager().SESSIONS
         self.USERS_COUNT=Thread_DataManager().USERS_COUNT
+        self.user_socket_dict=Thread_DataManager().user_socket_dict
         self.THREADS_COUNT=0
-        self.user_socket_dict={}
         self.stopped_threads={}
         self.finished_users=[]
         self.log=Log().logging
@@ -46,7 +46,7 @@ class Thread:
                         '''
         print(LIST_VARIABLES)
 
-    def Create_Thread(self, target, args=(), daemon=False):
+    def ThreadConstructor(self, target, args=(), daemon=False):
         thread_mutex=0
         while True:
             new_thread_name='THREAD_{}_{}'.format(target.__name__,thread_mutex)
@@ -59,7 +59,7 @@ class Thread:
             else:
                 thread_mutex+=1
 
-    def clearSessionInfo(self,thread_name,user):
+    def SessionDestructor(self,thread_name,user):
         thread=eval(thread_name)
         if (thread.is_alive()==False):
             del self.user_socket_dict[user]
