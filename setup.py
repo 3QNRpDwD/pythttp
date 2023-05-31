@@ -5,7 +5,7 @@ with open(r"README.md", "r") as fh:
 
 setuptools.setup(
     name="pythttp",
-    version="0.0.1",
+    version="0.1.0",
     author="Example Author",
     author_email="team.longinus.project@gmail.com",
     description="A small example package",
