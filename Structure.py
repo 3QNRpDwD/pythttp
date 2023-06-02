@@ -1,14 +1,17 @@
 import datetime as dt
 import pickle
 
+
+
 class DBManager:
     def __init__(self) -> None:
-        self.ServerDB={}
+        pass
 
     def SaveDB(self):
         with open('ServerDB.DB','wb') as WDB:
             pickle.dump(self.ServerDB,WDB)
         return 'Done'
+    
     
     def loadDB(self):
         with open('ServerDB.DB','rb') as RDB:

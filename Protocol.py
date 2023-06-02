@@ -66,7 +66,7 @@ class HyperTextTransferProtocol:
         thread_name,thread = self.Thread.ThreadConstructor(target=self.Receive,args=socket_and_addres)
         self.Thread.USERS.append(socket_and_addres[1])
         self.Thread.USERS_COUNT+=1
-        self.Thread.SESSIONS[thread_name]=socket_and_addres[1]
+        self.Thread.ThreadSessions[thread_name]=socket_and_addres[1]
         self.Thread.user_socket_dict[socket_and_addres[1]]=socket_and_addres[0]
         return thread_name,thread
 
