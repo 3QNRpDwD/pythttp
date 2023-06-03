@@ -1,27 +1,30 @@
 import datetime as dt
+from dataclasses import dataclass, field
 import pickle
 
 
 
-class DBManager:
-    def __init__(self) -> None:
+@dataclass
+class StructDB:
+    UserUID: str
+    UserName: str
+    UserPw: str
+    UserEmail: str = None
+    UserUploadFiles: dict =field(default_factory=dict)
+    StructDBdict: dict =field(init=False,default_factory=dict)
+    def __post_init__(self):
+        self.StructDBdict['UserUID'] = self.UserUID
+        self.StructDBdict['UserName'] = self.UserName
+        self.StructDBdict['UserPw'] = self.UserPw
+        self.StructDBdict['UserEmail'] = self.UserEmail
+        self.StructDBdict['UserUploadFiles'] = self.UserUploadFiles
+
+class DBManger:
+    
+    def PASS(self):
         pass
 
-    def SaveDB(self):
-        with open('ServerDB.DB','wb') as WDB:
-            pickle.dump(self.ServerDB,WDB)
-        return 'Done'
-    
-    
-    def loadDB(self):
-        with open('ServerDB.DB','rb') as RDB:
-            self.ServerDB=pickle.load(RDB)
-        return 'Done'
 
-    def CreatDB(self):
-        with open('ServerDB.DB','ab') as CDB:
-            pickle.dump(self.ServerDB,CDB)
-        return 'Done'
 
 class PrepareHeader:
     def __init__(self, user_agent='127.0.0.1', body=None):
@@ -47,13 +50,14 @@ class PrepareHeader:
                '\r\n'.join([f'{key}: {value}' for key, value in headers.items()]) + \
                '\r\n\r\n'
 
-    def _response_headers(self,status_code,Content):
+    def _response_headers(self,status_code,Content,Cookie=None):
         headers = {
             'Date': HttpDateTime().http_date_time,
             'Server':'longinus',
             'Cache-Control': 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0',
             'Pragma' : 'no-cache',
-            'Content-Length': len(Content)
+            'Content-Length': len(Content),
+            'Set-Cookie' : Cookie
         }
         return (f'HTTP/1.1 {status_code}\r\n' + \
         '\r\n'.join([f'{key}: {value}' for key, value in headers.items()]) + \

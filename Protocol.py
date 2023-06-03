@@ -1,4 +1,5 @@
 import socket
+import select
 from urllib import request
 from urllib import parse
 from .Thread_Manager import *
@@ -53,7 +54,6 @@ class HyperTextTransferProtocol:
             buf_size = 2048
             while True:
                 post_body += socket[0].recv(buf_size)
-                print(buf_size)
                 if max_buf_size == len(post_body):
                     break
                 buf_size = buf_size * 2
@@ -61,6 +61,7 @@ class HyperTextTransferProtocol:
         self.log(msg=f"[{parse.unquote(header_list[0])} request from] ==> \033[33m{address}\033[0m")
         return 'Header', header_list
     
+
     def ExtractPostBodySize(self, header):
         content_length_header = next((header for header in header if 'Content-Length' in header), None)
         if content_length_header:
