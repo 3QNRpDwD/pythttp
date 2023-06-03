@@ -28,12 +28,15 @@ class Handler:
         thread.start()
         thread.join()
         first_line = thread.result[0]
-        if 'GET' in first_line:
+        if 'Header' == first_line:
             query=self.HandleGETRequest(thread)
-        elif 'POST' in first_line:
-            file_name=thread.result[1][1].split('"')[3]
-            self.ImgFileUpload(thread.result[2],f'{file_name}')
-            query=self.HandleFileRequest(self.ServerDB['Img'][file_name])
+        # elif 'Body' == first_line:
+        #     query=self.HandleTextFileRequest()
+            # file_name=thread.result[1][1].split('"')[3]
+            # self.ImgFileUpload(thread.result[1][4].encode(),f'{file_name}')
+            # query=self.HandleFileRequest(self.ServerDB['Img'][file_name])
+        elif 'Body' == first_line:
+            print(thread.result)
         else:
             return 'This communication is not HTTP protocol'
         self.http.SendResponse(query, socket_and_address)
@@ -102,39 +105,21 @@ class Handler:
 
 @dataclass
 class Session:
-    """
-    Sessions is a data class that holds the session information for the system.
-    """
-    UserID: str
-    SessionValidityDays: int
+
     SessionToken: str = field(init=False, default=None)
-    SessionInfo: Dict[str, Set[Tuple[str, float]]] = field(init=False, default_factory=dict)
+    SessionValidity: float = field(init=False, default=None)
+    SessionValidityDays: int
+    UserInfo: dict = field(default_factory=dict)
+    SessionDict: Set[Dict[str, str]] = field(init=False, default_factory=dict)
 
     def __post_init__(self):
-        """
-        Method called after object initialization.
-        Adds or updates session information.
-
-        Explanation:
-        This method is called automatically after the object is initialized.
-        It is responsible for adding or updating session information in the SessionInfo dictionary.
-        It generates a unique token using the SessionID class, with a length of 16 characters.
-        Then, it calculates the session validity by adding the SessionValidityDays to the current datetime
-        and converting it to a timestamp.
-
-        If the generated token already exists in the SessionInfo dictionary, it adds a tuple with the
-        UserID and session validity to the existing set of session information.
-        Otherwise, it creates a new key-value pair in the SessionInfo dictionary, with the token as the key
-        and a set containing a tuple of the UserID and session validity as the value.
-        """
         self.SessionToken = SessionID(16).Token
-        session_validity = (datetime.now() + timedelta(days=self.SessionValidityDays)).timestamp()
+        self.SessionValidity = (datetime.now() + timedelta(days=self.SessionValidityDays)).timestamp()
+        self.SessionDict['SessionID']=self.SessionToken
+        self.SessionDict['SessionValidity']=self.SessionValidity
+        self.SessionDict['UserInfo']=self.UserInfo
 
-        if self.SessionToken in self.SessionInfo:
-            self.SessionInfo[self.SessionToken].add((self.UserID, session_validity))
-        else:
-            self.SessionInfo[self.SessionToken] = {(self.UserID, session_validity)}
-    
+
 @dataclass
 class SessionID:
     """
@@ -160,36 +145,11 @@ class SessionID:
 
 class SessionsManager:
     def __init__(self) -> None:
-        self.Sessions = {}
+        self.Sessions = []
 
-    def RegisterUserSession(self, UserID: str, SessionValidityDays: int):
-        """
-        Registers a user session and returns the session token.
-
-        Parameters:
-        - UserID (str): The ID of the user.
-        - SessionValidityDays (int): The number of days the session will be valid.
-
-        Returns:
-        - str: The session token generated for the user.
-
-        Explanation:
-        This method is used to register a user session by creating a new session for the given user ID
-        and session validity. It generates a session token and calculates the session's validity period.
-
-        First, a new Session object called SessionInfo is created by passing the UserID and SessionValidityDays
-        as arguments. This Session object is responsible for generating the session token and calculating
-        the session validity.
-
-        Next, the session information from SessionInfo is merged into the Sessions dictionary by calling
-        the update() method. This adds or updates the session information for the user in the Sessions dictionary.
-
-        Finally, the session token (SessionInfo.SessionToken) is returned, which represents the generated
-        session token for the user.
-
-        """
-        SessionInfo = Session(UserID, SessionValidityDays)
-        self.Sessions.update(SessionInfo.SessionInfo)
+    def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
+        SessionInfo = Session(SessionValidityDays, UserInfo)
+        self.Sessions.append(SessionInfo)
         return SessionInfo.SessionToken
 
 class Verify:

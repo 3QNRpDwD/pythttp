@@ -38,22 +38,28 @@ class HyperTextTransferProtocol:
         self.log(msg=f"[Connected with] ==> \033[32m{self.addr}\033[0m")
         return self.c, self.addr
     
-    def Receive(self,socket=None, addres=None, max_recv_size=1):
+    def Receive(self, socket=None, address=None, max_recv_size=1):
         received_data = b''
-        header_list=list()
+        header_list = []
+        sokt=self.c
+        if socket is not None:
+            sokt= socket[0]
         while b'\r\n\r\n' not in received_data:
-            if socket is None:
-                received_data += self.c.recv(max_recv_size)
-            received_data += socket[0].recv(max_recv_size)
-            header_list=parse.unquote(received_data).split('\r\n')
+            received_data += sokt.recv(max_recv_size)
+        header_list = parse.unquote(received_data).split('\r\n')
         if 'POST' in header_list[0]:
-            post_header=self.Receive(socket,addres)[1]
-            post_body=b''
-            for count in range(int(self.ExtractPostBodySize(header_list)/2048)):
-                post_body+=socket[0].recv(2048)
-            return 'POST',post_header,post_body
-        self.log(msg=f'[{parse.unquote(header_list[0])} request from] ==> \033[33m{addres}\033[0m')
-        return 'GET',header_list
+            post_body = b''
+            max_buf_size = self.ExtractPostBodySize(header_list)
+            buf_size = 2048
+            while True:
+                post_body += socket[0].recv(buf_size)
+                print(buf_size)
+                if max_buf_size == len(post_body):
+                    break
+                buf_size = buf_size * 2
+            return 'Body', post_body
+        self.log(msg=f"[{parse.unquote(header_list[0])} request from] ==> \033[33m{address}\033[0m")
+        return 'Header', header_list
     
     def ExtractPostBodySize(self, header):
         content_length_header = next((header for header in header if 'Content-Length' in header), None)
