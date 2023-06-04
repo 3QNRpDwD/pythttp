@@ -19,12 +19,6 @@ class StructDB:
         self.StructDBdict['UserEmail'] = self.UserEmail
         self.StructDBdict['UserUploadFiles'] = self.UserUploadFiles
 
-class DBManger:
-    
-    def PASS(self):
-        pass
-
-
 
 class PrepareHeader:
     def __init__(self, user_agent='127.0.0.1', body=None):

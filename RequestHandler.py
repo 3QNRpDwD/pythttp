@@ -1,5 +1,6 @@
 from .Protocol import *
 from .Structure import StructDB
+from .Log_Manager import Log
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import secrets
@@ -13,7 +14,10 @@ class Handler:
         self.http=HyperTextTransferProtocol()
         self.Thread=self.http.Thread
         self.ServerUsersDB=[]
+        self.Sessions = []
         self.ServerDB={}
+        self.log=Log().logging
+        self.HandleloadDB()
 
     def RunServer(self):
         self.http.BindAddress()
@@ -64,17 +68,29 @@ class Handler:
                 Response= self.HandleFileRequest(f'{result}')
             elif '/upload_form' == result:
                 Response= self.HandleTextFileRequest('/upload_form.html')
-            elif '/signup_form' == result:
-                Response= self.HandleTextFileRequest('/signup_form.html')
-            elif '/login_form' == result:
-                Response= self.HandleTextFileRequest('/login_form.html')
+            elif not self.verifySessionCookie(thread.result[1])[0]:
+                if '/signup_form' == result:
+                    Response= self.HandleTextFileRequest('/signup_form.html')
+                elif '/login_form' == result:
+                    Response= self.HandleTextFileRequest('/login_form.html')
+            elif (self.verifySessionCookie(thread.result[1])[0] and '/logout_form' == result):
+                Response= self.HandleTextFileRequest('/logout_form.html')
             return Response
         except FileNotFoundError:
             with open('resource/Hello world.html','r',encoding='UTF-8') as arg:
                 print(f'해당 resource{result}파일을 찾을수 없습니다.')
                 Error_Response=arg.read().format(msg=f'해당 resource{result}파일을 찾을수 없습니다.').encode('utf-8')
                 return PrepareHeader()._response_headers('404 Not Found',Error_Response) + Error_Response
-        
+            
+    def verifySessionCookie(self,RequestData:list):
+        for data in RequestData:
+            if ('Cookie' in data):
+                for Values in data.split('SessionID='):
+                    for Session in self.Sessions:
+                        if Values==Session.SessionToken:
+                            return True, Values
+        return False, None
+
     def HandleFileRequest(self,img_file='/a.png'):
         with open(f'resource{img_file}', 'rb') as ImgFile:
             Response_file=ImgFile.read()
@@ -113,6 +129,8 @@ class Handler:
         except Exception as e:
             return self.HandleTextFileRequest(query=f'User information error! Invalid nickname or password : {UserName,UserPw}')
         self.ServerUsersDB.append(StructDB(UserUID,AuthenticatedName,AuthenticatedPassword))
+        self.log(f"[ SignUp User ] ==> UUID : \033[96m{UserUID}\033[0m")
+        self.HandleSaveDB()
         return self.HandleTextFileRequest(query=f'Thanks for signing up!\n\nWelcome!')
 
     def login_handler(self,UserID,UserPw):
@@ -120,13 +138,31 @@ class Handler:
         UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
         for DB in self.ServerUsersDB:
             if (UserUID == DB.UserUID and UserPw == DB.UserPw):
-                SessionID=SessionsManager().RegisterUserSession(7,UserInfo={'UserUID':UserUID})
+                SessionID=self.RegisterUserSession(7,UserInfo={'UserUID':UserUID})
+                self.log(f"[ New Session Created ] ==> SessionID : \033[96m{SessionID}\033[0m")
                 with open(f'resource/Hello world.html','r',encoding='UTF-8') as TextFile:
                     Text=TextFile.read()
                     Response_file=Text.format(msg=f"Login complete!\n\nWelcome! User : {UserUID}").encode('UTF-8')
                     return PrepareHeader()._response_headers('200 OK',Response_file,Cookie=f'SessionID = {SessionID}') + Response_file
         return self.HandleTextFileRequest(query=f'User ID or password does not exist : {UserID,UserPw}')
 
+    def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
+        SessionInfo = Session(SessionValidityDays, UserInfo)
+        self.Sessions.append(SessionInfo)
+        return SessionInfo.SessionToken
+
+    def HandleSaveDB(self):
+        with open(f'resource/ServerUserDB.DB','wb') as DBfile:
+            pickle.dump(self.ServerUsersDB,DBfile)
+            self.log(f"[ Database Save Successful ] ==> \033[96mresource/ServerUserDB.DB\033[0m")
+
+    def HandleloadDB(self):
+        try:
+            with open(f'resource/ServerUserDB.DB','rb') as DBfile:
+                self.ServerUsersDB=pickle.load(DBfile)
+                self.log(f"[ Database Load Successful ] ==> \033[96mresource/ServerUserDB.DB\033[0m")
+        except FileNotFoundError:
+            pass
 
 @dataclass
 class Session:
@@ -181,15 +217,6 @@ class SessionID:
         
         """
         self.Token = secrets.token_hex(self.length)
-
-class SessionsManager:
-    def __init__(self) -> None:
-        self.Sessions = []
-
-    def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
-        SessionInfo = Session(SessionValidityDays, UserInfo)
-        self.Sessions.append(SessionInfo)
-        return SessionInfo.SessionToken
 
 class Verify:
 

@@ -29,14 +29,14 @@ class HyperTextTransferProtocol:
     def BindAddress(self, address='0.0.0.0', port=80):
         external_ip = request.urlopen('https://ident.me').read().decode('utf8')  
         self.s.bind((address, port))
-        self.log(f"[Server started on] ==> \033[96m{external_ip}:{port}\033[0m")
+        self.log(f"[ Server started on ] ==> \033[96m{external_ip}:{port}\033[0m")
 
     def listen(self, limit=0):
         self.s.listen(limit)
 
     def AcceptConnection(self):
         self.c, self.addr = self.s.accept()
-        self.log(msg=f"[Connected with] ==> \033[32m{self.addr}\033[0m")
+        self.log(msg=f"[ Connected with ] ==> \033[32m{self.addr}\033[0m")
         return self.c, self.addr
     
     def Receive(self, socket=None, address=None, max_recv_size=1):
@@ -58,7 +58,7 @@ class HyperTextTransferProtocol:
                     break
                 buf_size = buf_size * 2
             return 'Body', post_body
-        self.log(msg=f"[{parse.unquote(header_list[0])} request from] ==> \033[33m{address}\033[0m")
+        self.log(msg=f"[ {parse.unquote(header_list[0])} request from] ==> \033[33m{address}\033[0m")
         return 'Header', header_list
     
 
@@ -81,5 +81,5 @@ class HyperTextTransferProtocol:
         addr = f'\033[31m{socket_and_addres[1]}\033[0m'
         socket_and_addres[0][0].send(query)
         socket_and_addres[0][0].close()
-        self.log(msg=f'[Disconnected from] ==> {addr}')
+        self.log(msg=f'[ Disconnected from ] ==> {addr}')
         self.Thread.finished_users.append(socket_and_addres[1])
