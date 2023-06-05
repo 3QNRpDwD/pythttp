@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import secrets
 import base64
+import json
 import uuid
 import re
 
@@ -31,64 +32,70 @@ class Handler:
         thread_name, thread = self.http.AssignUserThread(socket_and_address)
         thread.start()
         thread.join()
+        Request=thread.result
         first_line = thread.result[0]
-        if 'Header' == first_line:
-            query=self.HandleGETRequest(thread)
-        elif 'Body' == first_line:
-            post_data=parse.unquote(thread.result[1])
-            if '&' in post_data:
-                UserInfo= ParseStringToDict(post_data)
-                if len(UserInfo) == 3:
-                    query=self.Sign_Up_handler(UserInfo['UserID'],UserInfo['UserName'],UserInfo['UserPw'])
-                elif len(UserInfo) == 2:
-                    query=self.login_handler(UserInfo['UserID'],UserInfo['UserPw'])
-            else:
-                pass
-                # query=self.HandleTextFileRequest()
-                # file_name=thread.result[1][1].split('"')[3]
-                # self.ImgFileUpload(thread.result[1][4].encode(),f'{file_name}')
-                # query=self.HandleFileRequest(self.ServerDB['Img'][file_name])
+        if 'GET' in first_line:
+            Response=self.HandleGETRequest(Request)
+        elif 'POST' in first_line[0]:
+            Response=self.HandlePOSTRequest(Request)
         else:
-            return 'This communication is not HTTP protocol'
-        self.http.SendResponse(query, socket_and_address)
+            raise Exception('This communication is not HTTP protocol')
+        self.http.SendResponse(Response, socket_and_address)
         self.Thread.find_stopped_thread()
         self.Thread.ThreadDestructor(thread_name, client_address)
 
-    def HandleGETRequest(self, thread):
-        result = parse.unquote(thread.result[1][0]).split(' ')[1].replace('\\','/')
+    def HandleGETRequest(self, Request):
+        result = parse.unquote(Request[0]).split(' ')[1].replace('\\','/')
         try:
             Response = self.HandleTextFileRequest()
             if '?print=' in result:
-                Response = self.HandleTextFileRequest(query=result.split('=')[1])
-            elif '.ico' in result:
-                Response=self.HandleFileRequest(result)
-            elif '.html' in result:
-                Response=self.HandleTextFileRequest(result)
+                Response = self.HandleTextFileRequest(msg=result.split('=')[1])
             elif '.png' in result:
                 Response= self.HandleFileRequest(f'{result}')
+            elif '.ico' in result:
+                Response=self.HandleFileRequest(result)
             elif '/upload_form' == result:
                 Response= self.HandleTextFileRequest('/upload_form.html')
-            elif not self.verifySessionCookie(thread.result[1])[0]:
-                if '/signup_form' == result:
-                    Response= self.HandleTextFileRequest('/signup_form.html')
-                elif '/login_form' == result:
-                    Response= self.HandleTextFileRequest('/login_form.html')
-            elif (self.verifySessionCookie(thread.result[1])[0] and '/logout_form' == result):
-                Response= self.HandleTextFileRequest('/logout_form.html')
+            elif not self.verifySessionCookie(Request)[0]:
+                if '/SignUp_form' == result:
+                    Response= self.HandleTextFileRequest('/SignUp_form.html')
+                elif '/Login_form' == result:
+                    Response= self.HandleTextFileRequest('/Login_form.html')
+            elif (self.verifySessionCookie(Request)[0] and '/Logout_form' == result):
+                Response= self.HandleTextFileRequest('/Logout_form.html')
+            elif '.html' in result:
+                Response=self.HandleTextFileRequest(result)
             return Response
         except FileNotFoundError:
             with open('resource/Hello world.html','r',encoding='UTF-8') as arg:
                 print(f'해당 resource{result}파일을 찾을수 없습니다.')
                 Error_Response=arg.read().format(msg=f'해당 resource{result}파일을 찾을수 없습니다.').encode('utf-8')
                 return PrepareHeader()._response_headers('404 Not Found',Error_Response) + Error_Response
-            
+
+    def HandlePOSTRequest(self,Request):
+        JsonData=parse.unquote(Request[1])
+        DictPostData=json.loads(JsonData)
+        Form=DictPostData['Form']
+        Response=self.HandleTextFileRequest()
+        try:
+            if Form == 'SignUp':
+                Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserName'],DictPostData['UserPw'])
+            elif Form == 'Login':
+                Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'])
+            elif Form == 'Logout':
+                SessionID=self.verifySessionCookie(Request[0])[1]
+                Response=self.Logout_Handler(SessionID)
+        except Exception as e:
+            Response=self.ErrorHandler(e)
+        return Response
+
     def verifySessionCookie(self,RequestData:list):
         for data in RequestData:
             if ('Cookie' in data):
-                for Values in data.split('SessionID='):
-                    for Session in self.Sessions:
-                        if Values==Session.SessionToken:
-                            return True, Values
+                Values = data.split('SessionID=')[1]
+                for Session in self.Sessions:
+                    if Values==Session.SessionToken:
+                        return True, Values
         return False, None
 
     def HandleFileRequest(self,img_file='/a.png'):
@@ -96,13 +103,21 @@ class Handler:
             Response_file=ImgFile.read()
             return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
         
-    def HandleTextFileRequest(self,flie='/Hello world.html', query='아무튼 웹 서버임'):
+    def HandleTextFileRequest(self,flie='/Hello world.html'):
         with open(f'resource{flie}','r',encoding='UTF-8') as TextFile:
+            Response_file=TextFile.read().encode('UTF-8')
+        return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
+    
+    def HandleMultiFileRequest(self,title,headline,pagemsg,Cookie=None):
+        with open(f'resource/multipurpos_page.html','r',encoding='UTF-8') as TextFile:
             Text=TextFile.read()
-            try:
-                Response_file=self.addFormatToHTML(Text,self.ServerDB['Img'],'<img src="{val}" alt="{key}">\n\t').encode('UTF-8')
-            except KeyError:
-                Response_file=Text.format(msg=query,Format='').encode('UTF-8')
+            Response_file=Text.format(title=title,headline=headline,pagemsg=pagemsg).encode('UTF-8')
+        return PrepareHeader()._response_headers('200 OK',Response_file,Cookie=Cookie) + Response_file
+    
+    def ErrorHandler(self,Error_msg):
+        with open(f'resource/Error_Form.html','r',encoding='UTF-8') as TextFile:
+            Response_file=TextFile.read()
+            Response_file=Response_file.format(msg=Error_msg).encode('utf-8')
         return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
     
     def addFormatToHTML(self,HtmlText : str, FormatData : dict, style : str):
@@ -118,32 +133,43 @@ class Handler:
             self.ServerDB['Img']={file_name:f'/ImgFileUpload/{file_name}'}
             return file_name
 
-
-    def Sign_Up_handler(self,UserID,UserName,UserPw):
+    def SignUp_Handler(self,UserID,UserName,UserPw):
         UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
         for DB in self.ServerUsersDB:
             if (UserUID == DB.UserUID):
-                return self.HandleTextFileRequest(query=f'User information error! Duplicate ID! : {UserID}')
+                return self.HandleMultiFileRequest('Error Page','Error!',f'User information error! Duplicate ID! : {UserID}')
         try:
             AuthenticatedName,AuthenticatedPassword=Verify().VerifyCredentials(UserName, UserPw)
         except Exception as e:
-            return self.HandleTextFileRequest(query=f'{e} : {UserName,UserPw}')
+            return self.ErrorHandler(Error_msg=f'{e} : {UserName,UserPw}')
         self.ServerUsersDB.append(StructDB(UserUID,AuthenticatedName,AuthenticatedPassword))
         self.log(f"[ SignUp User ] ==> UUID : \033[96m{UserUID}\033[0m")
         self.HandleSaveDB()
-        return self.HandleTextFileRequest(query=f'Thanks for signing up!\n\nWelcome!')
+        return self.HandleMultiFileRequest('SignUp Successful','SignUp Successful! \n User : {UserName}','Your registration has been successfully completed. You can start using our services.')
 
-    def login_handler(self,UserID,UserPw):
-        UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
-        for DB in self.ServerUsersDB:
-            if (UserUID == DB.UserUID and UserPw == DB.UserPw):
-                SessionID=self.RegisterUserSession(7,UserInfo={'UserUID':UserUID})
-                self.log(f"[ New Session Created ] ==> SessionID : \033[96m{SessionID}\033[0m")
-                with open(f'resource/Hello world.html','r',encoding='UTF-8') as TextFile:
-                    Text=TextFile.read()
-                    Response_file=Text.format(msg=f"Login complete!\n\nWelcome! User : {UserUID}").encode('UTF-8')
-                    return PrepareHeader()._response_headers('200 OK',Response_file,Cookie=f'SessionID = {SessionID}') + Response_file
-        return self.HandleTextFileRequest(query=f'User ID or password does not exist : {UserID,UserPw}')
+    def Login_Handler(self, user_id, user_pw):
+        user_uid = uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), user_id)
+        # Check if user is already logged in
+        if self.Sessions:
+            for session in self.Sessions:
+                if session.UserInfo['UserUID'] == user_uid:
+                    return self.ErrorHandler(Error_msg='Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
+        # Check user credentials and create new session
+        for db in self.ServerUsersDB:
+            if user_uid == db.UserUID and user_pw == db.UserPw:
+                session_id = self.RegisterUserSession(7, {'UserUID': user_uid})
+                self.log(f"[New Session Constructed] ==> SessionID: \033[96m{session_id}\033[0m")
+                return self.HandleMultiFileRequest('Welcome', f'Welcome! User: {user_id}', f"Dear {user_id}, thank you for logging in. We're excited to have you on board!", Cookie=f'SessionID = {session_id}')        
+        return self.ErrorHandler(Error_msg=f'User ID or password does not exist: {user_id, user_pw}')
+
+    
+    def Logout_Handler(self,SessionID):
+        for Session in self.Sessions:
+            if Session.SessionToken == SessionID:
+                self.Sessions.remove(Session)
+                self.log(f"[ Session Destructed ] ==> SessionID : \033[96m{SessionID}\033[0m")
+                return self.HandleMultiFileRequest('Logout',f'Goodbye!',f'Thank you for using our services. We hope to see you again soon!')
+        return self.ErrorHandler(Error_msg=f'To log out, you must first log in. Please verify your account information and log in before attempting to log out')
 
     def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
         SessionInfo = Session(SessionValidityDays, UserInfo)

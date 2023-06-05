@@ -57,10 +57,10 @@ class HyperTextTransferProtocol:
                 if max_buf_size == len(post_body):
                     break
                 buf_size = buf_size * 2
-            return 'Body', post_body
+            self.log(msg=f"[ {parse.unquote(header_list[0])} request from] ==> \033[33m{address}\033[0m")
+            return header_list , post_body
         self.log(msg=f"[ {parse.unquote(header_list[0])} request from] ==> \033[33m{address}\033[0m")
-        return 'Header', header_list
-    
+        return header_list
 
     def ExtractPostBodySize(self, header):
         content_length_header = next((header for header in header if 'Content-Length' in header), None)
@@ -77,9 +77,9 @@ class HyperTextTransferProtocol:
         self.Thread.user_socket_dict[socket_and_addres[1]]=socket_and_addres[0]
         return thread_name,thread
 
-    def SendResponse(self,query,socket_and_addres):
+    def SendResponse(self,Response,socket_and_addres):
         addr = f'\033[31m{socket_and_addres[1]}\033[0m'
-        socket_and_addres[0][0].send(query)
+        socket_and_addres[0][0].send(Response)
         socket_and_addres[0][0].close()
         self.log(msg=f'[ Disconnected from ] ==> {addr}')
         self.Thread.finished_users.append(socket_and_addres[1])
