@@ -1,16 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Login</title><meta charset="utf-8">
+  <title>Login</title>
+  <meta charset="utf-8">
 </head>
 <body>
   <h2>Login</h2>
-  <form action="/login_form" method="POST">
+  <form id="loginForm">
     <label for="UserID">UserID:</label>
     <input type="text" id="UserID" name="UserID" required><br><br>
     <label for="UserPw">Password:</label>
     <input type="password" id="UserPw" name="UserPw" required><br><br>
     <input type="submit" value="Login">
   </form>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", function(event) {
+      event.preventDefault(); // 폼 기본 제출 동작 방지
+
+      var form = event.target;
+      var data = {
+        Form: "Login",
+        UserID: form.elements["UserID"].value,
+        UserPw: form.elements["UserPw"].value
+      };
+
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", "/login_form", true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+          var responseHTML = xhr.responseText;
+          var newPage = document.open("text/html", "replace");
+          newPage.write(responseHTML);
+          newPage.close();
+        }
+      };
+      xhr.send(JSON.stringify(data));
+    });
+  </script>
 </body>
 </html>
