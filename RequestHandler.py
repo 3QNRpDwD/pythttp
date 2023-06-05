@@ -1,5 +1,5 @@
 from .Protocol import *
-from .Structure import StructDB
+from .Structure import *
 from .Log_Manager import Log
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -34,20 +34,20 @@ class Handler:
         first_line = thread.result[0]
         if 'Header' == first_line:
             query=self.HandleGETRequest(thread)
-        # elif 'Body' == first_line:
-        #     query=self.HandleTextFileRequest()
-            # file_name=thread.result[1][1].split('"')[3]
-            # self.ImgFileUpload(thread.result[1][4].encode(),f'{file_name}')
-            # query=self.HandleFileRequest(self.ServerDB['Img'][file_name])
         elif 'Body' == first_line:
             post_data=parse.unquote(thread.result[1])
             if '&' in post_data:
-                UserInfo=post_data.split('&')
+                UserInfo= ParseStringToDict(post_data)
                 if len(UserInfo) == 3:
-                    query=self.Sign_Up_handler(UserInfo[0],UserInfo[1],UserInfo[2])
+                    query=self.Sign_Up_handler(UserInfo['UserID'],UserInfo['UserName'],UserInfo['UserPw'])
                 elif len(UserInfo) == 2:
-                    query=self.login_handler(UserInfo[0],UserInfo[1])
-
+                    query=self.login_handler(UserInfo['UserID'],UserInfo['UserPw'])
+            else:
+                pass
+                # query=self.HandleTextFileRequest()
+                # file_name=thread.result[1][1].split('"')[3]
+                # self.ImgFileUpload(thread.result[1][4].encode(),f'{file_name}')
+                # query=self.HandleFileRequest(self.ServerDB['Img'][file_name])
         else:
             return 'This communication is not HTTP protocol'
         self.http.SendResponse(query, socket_and_address)
@@ -125,16 +125,15 @@ class Handler:
             if (UserUID == DB.UserUID):
                 return self.HandleTextFileRequest(query=f'User information error! Duplicate ID! : {UserID}')
         try:
-            AuthenticatedName,AuthenticatedPassword=Verify().VerifyCredentials(UserName.split('=')[1], UserPw.split('=')[1])
+            AuthenticatedName,AuthenticatedPassword=Verify().VerifyCredentials(UserName, UserPw)
         except Exception as e:
-            return self.HandleTextFileRequest(query=f'User information error! Invalid nickname or password : {UserName,UserPw}')
+            return self.HandleTextFileRequest(query=f'{e} : {UserName,UserPw}')
         self.ServerUsersDB.append(StructDB(UserUID,AuthenticatedName,AuthenticatedPassword))
         self.log(f"[ SignUp User ] ==> UUID : \033[96m{UserUID}\033[0m")
         self.HandleSaveDB()
         return self.HandleTextFileRequest(query=f'Thanks for signing up!\n\nWelcome!')
 
     def login_handler(self,UserID,UserPw):
-        UserPw=UserPw.split('=')[1]
         UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
         for DB in self.ServerUsersDB:
             if (UserUID == DB.UserUID and UserPw == DB.UserPw):

@@ -19,6 +19,16 @@ class StructDB:
         self.StructDBdict['UserEmail'] = self.UserEmail
         self.StructDBdict['UserUploadFiles'] = self.UserUploadFiles
 
+def ParseStringToDict(string):
+    result = {}
+    parts = string.split('&')
+    for part in parts:
+        key_value = part.split('=')
+        if len(key_value) == 2:
+            key = key_value[0].strip()
+            value = key_value[1].strip()
+            result[key] = value
+    return result
 
 class PrepareHeader:
     def __init__(self, user_agent='127.0.0.1', body=None):
