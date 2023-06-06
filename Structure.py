@@ -1,11 +1,12 @@
 import datetime as dt
 from dataclasses import dataclass, field
-import pickle
+import secrets
 
 
 
 @dataclass
 class StructDB:
+    DataBaseID:str =field(init=False, default=None)
     UserUID: str
     UserName: str
     UserPw: str
@@ -13,11 +14,38 @@ class StructDB:
     UserUploadFiles: dict =field(default_factory=dict)
     StructDBdict: dict =field(init=False,default_factory=dict)
     def __post_init__(self):
+        self.DataBaseID = DataBaseID(16).Token
         self.StructDBdict['UserUID'] = self.UserUID
         self.StructDBdict['UserName'] = self.UserName
         self.StructDBdict['UserPw'] = self.UserPw
         self.StructDBdict['UserEmail'] = self.UserEmail
         self.StructDBdict['UserUploadFiles'] = self.UserUploadFiles
+
+    def __hash__(self):
+        return hash(self.DataBaseID)
+
+@dataclass
+class DataBaseID:
+    """
+    Data class representing a database identifier.
+
+    python
+    Copy code
+    Attributes:
+    length (int): The length of the database identifier.
+    Token (str): The database token (automatically generated).
+
+    """
+    length: int
+    Token: str = field(init=False, default=None)
+
+    def __post_init__(self):
+        """
+        Method executed after initialization.
+        Generates the database token.
+        
+        """
+        self.Token = secrets.token_hex(self.length)
 
 def ParseStringToDict(string):
     result = {}

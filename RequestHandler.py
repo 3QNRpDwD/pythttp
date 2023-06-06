@@ -4,6 +4,7 @@ from .Log_Manager import Log
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import secrets
+import pickle
 import base64
 import json
 import uuid
@@ -14,8 +15,8 @@ class Handler:
     def __init__(self) -> None:
         self.http=HyperTextTransferProtocol()
         self.Thread=self.http.Thread
-        self.ServerUsersDB=[]
-        self.Sessions = []
+        self.ServerUsersDB=set([])
+        self.Sessions = set([])
         self.ServerDB={}
         self.log=Log().logging
         self.HandleloadDB()
@@ -77,21 +78,21 @@ class Handler:
         DictPostData=json.loads(JsonData)
         Form=DictPostData['Form']
         Response=self.HandleTextFileRequest()
-        try:
-            if Form == 'SignUp':
-                Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserName'],DictPostData['UserPw'])
-            elif Form == 'Login':
-                Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'])
-            elif Form == 'Logout':
-                SessionID=self.verifySessionCookie(Request[0])[1]
-                Response=self.Logout_Handler(SessionID)
-        except Exception as e:
-            Response=self.ErrorHandler(e)
+        is_valid_cookie,cookie_value=self.verifySessionCookie(Request[0])
+        #try:
+        if Form == 'SignUp':
+            Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
+        elif Form == 'Login':
+            Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'],is_valid_cookie)
+        elif Form == 'Logout':
+            Response=self.Logout_Handler(cookie_value)
+        #except Exception as e:
+            #Response=self.ErrorHandler(e)
         return Response
 
     def verifySessionCookie(self,RequestData:list):
         for data in RequestData:
-            if ('Cookie' in data):
+            if ('Cookie' in data and 'SessionID=' in data):
                 Values = data.split('SessionID=')[1]
                 for Session in self.Sessions:
                     if Values==Session.SessionToken:
@@ -133,8 +134,10 @@ class Handler:
             self.ServerDB['Img']={file_name:f'/ImgFileUpload/{file_name}'}
             return file_name
 
-    def SignUp_Handler(self,UserID,UserName,UserPw):
+    def SignUp_Handler(self,UserID,UserName,UserPw,is_valid_cookie):
         UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
+        if self.Sessions and is_valid_cookie:
+            return self.ErrorHandler(Error_msg='Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
         for DB in self.ServerUsersDB:
             if (UserUID == DB.UserUID):
                 return self.HandleMultiFileRequest('Error Page','Error!',f'User information error! Duplicate ID! : {UserID}')
@@ -142,18 +145,18 @@ class Handler:
             AuthenticatedName,AuthenticatedPassword=Verify().VerifyCredentials(UserName, UserPw)
         except Exception as e:
             return self.ErrorHandler(Error_msg=f'{e} : {UserName,UserPw}')
-        self.ServerUsersDB.append(StructDB(UserUID,AuthenticatedName,AuthenticatedPassword))
+        DB=StructDB(UserUID,AuthenticatedName,AuthenticatedPassword)
+        self.ServerUsersDB.add(DB)
+        self.log(f"[ New DataBase Constructed ] ==> DBID : \033[95m{DB.DataBaseID}\033[0m")
         self.log(f"[ SignUp User ] ==> UUID : \033[96m{UserUID}\033[0m")
         self.HandleSaveDB()
-        return self.HandleMultiFileRequest('SignUp Successful','SignUp Successful! \n User : {UserName}','Your registration has been successfully completed. You can start using our services.')
+        return self.HandleMultiFileRequest('SignUp Successful',f'SignUp Successful! \n User : {UserName}','Your registration has been successfully completed. You can start using our services.')
 
-    def Login_Handler(self, user_id, user_pw):
+    def Login_Handler(self, user_id, user_pw ,is_valid_cookie):
         user_uid = uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), user_id)
         # Check if user is already logged in
-        if self.Sessions:
-            for session in self.Sessions:
-                if session.UserInfo['UserUID'] == user_uid:
-                    return self.ErrorHandler(Error_msg='Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
+        if self.Sessions and is_valid_cookie:
+            return self.ErrorHandler(Error_msg='Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
         # Check user credentials and create new session
         for db in self.ServerUsersDB:
             if user_uid == db.UserUID and user_pw == db.UserPw:
@@ -173,19 +176,19 @@ class Handler:
 
     def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
         SessionInfo = Session(SessionValidityDays, UserInfo)
-        self.Sessions.append(SessionInfo)
+        self.Sessions.add(SessionInfo)
         return SessionInfo.SessionToken
 
     def HandleSaveDB(self):
         with open(f'resource/ServerUserDB.DB','wb') as DBfile:
             pickle.dump(self.ServerUsersDB,DBfile)
-            self.log(f"[ Database Save Successful ] ==> \033[96mresource/ServerUserDB.DB\033[0m")
+            self.log(f"[ Database Save Successful ] ==> path : \033[95mresource/ServerUserDB.DB\033[0m")
 
     def HandleloadDB(self):
         try:
             with open(f'resource/ServerUserDB.DB','rb') as DBfile:
                 self.ServerUsersDB=pickle.load(DBfile)
-                self.log(f"[ Database Load Successful ] ==> \033[96mresource/ServerUserDB.DB\033[0m")
+                self.log(f"[ Database Load Successful ] ==> path : \033[95mresource/ServerUserDB.DB\033[0m")
         except FileNotFoundError:
             pass
 
@@ -219,6 +222,9 @@ class Session:
         self.SessionDict['SessionID'] = self.SessionToken
         self.SessionDict['SessionValidity'] = self.SessionValidity
         self.SessionDict['UserInfo'] = self.UserInfo
+
+    def __hash__(self):
+        return hash(self.SessionToken)
 
 @dataclass
 class SessionID:
