@@ -68,7 +68,7 @@ class Handler:
                 Response=self.HandleTextFileRequest(result)
             return Response
         except FileNotFoundError:
-            with open('resource/Hello world.html','r',encoding='UTF-8') as arg:
+            with open('resource/Error_Form.html','r',encoding='UTF-8') as arg:
                 print(f'해당 resource{result}파일을 찾을수 없습니다.')
                 Error_Response=arg.read().format(msg=f'해당 resource{result}파일을 찾을수 없습니다.').encode('utf-8')
                 return PrepareHeader()._response_headers('404 Not Found',Error_Response) + Error_Response
@@ -79,15 +79,15 @@ class Handler:
         Form=DictPostData['Form']
         Response=self.HandleTextFileRequest()
         is_valid_cookie,cookie_value=self.verifySessionCookie(Request[0])
-        #try:
-        if Form == 'SignUp':
-            Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
-        elif Form == 'Login':
-            Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'],is_valid_cookie)
-        elif Form == 'Logout':
-            Response=self.Logout_Handler(cookie_value)
-        #except Exception as e:
-            #Response=self.ErrorHandler(e)
+        try:
+            if Form == 'SignUp':
+                Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
+            elif Form == 'Login':
+                Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'],is_valid_cookie)
+            elif Form == 'Logout':
+                Response=self.Logout_Handler(cookie_value)
+        except Exception as e:
+            Response=self.ErrorHandler('400 Bad Request',e)
         return Response
 
     def verifySessionCookie(self,RequestData:list):
@@ -104,22 +104,17 @@ class Handler:
             Response_file=ImgFile.read()
             return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
         
-    def HandleTextFileRequest(self,flie='/Hello world.html'):
+    def HandleTextFileRequest(self,flie='/Index.html',Cookie=None):
         with open(f'resource{flie}','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read().encode('UTF-8')
-        return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
+        return PrepareHeader()._response_headers('200 OK',Response_file,Cookie) + Response_file
     
-    def HandleMultiFileRequest(self,title,headline,pagemsg,Cookie=None):
-        with open(f'resource/multipurpos_page.html','r',encoding='UTF-8') as TextFile:
-            Text=TextFile.read()
-            Response_file=Text.format(title=title,headline=headline,pagemsg=pagemsg).encode('UTF-8')
-        return PrepareHeader()._response_headers('200 OK',Response_file,Cookie=Cookie) + Response_file
-    
-    def ErrorHandler(self,Error_msg):
+    def ErrorHandler(self,Error_code,Error_msg):
         with open(f'resource/Error_Form.html','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read()
-            Response_file=Response_file.format(msg=Error_msg).encode('utf-8')
-        return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
+            Response_file=Response_file.replace('{0}',Error_code).replace('{1}',Error_msg).encode('utf-8')
+
+        return PrepareHeader()._response_headers('200',Response_file) + Response_file
     
     def addFormatToHTML(self,HtmlText : str, FormatData : dict, style : str):
         Format=''
@@ -137,33 +132,33 @@ class Handler:
     def SignUp_Handler(self,UserID,UserName,UserPw,is_valid_cookie):
         UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
         if self.Sessions and is_valid_cookie:
-            return self.ErrorHandler(Error_msg='Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
+            return self.ErrorHandler('403 Forbidden','Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
         for DB in self.ServerUsersDB:
             if (UserUID == DB.UserUID):
-                return self.HandleMultiFileRequest('Error Page','Error!',f'User information error! Duplicate ID! : {UserID}')
+                return self.ErrorHandler('406 Not Acceptable',f'User information error! Duplicate ID! : {UserID}')  
         try:
             AuthenticatedName,AuthenticatedPassword=Verify().VerifyCredentials(UserName, UserPw)
         except Exception as e:
-            return self.ErrorHandler(Error_msg=f'{e} : {UserName,UserPw}')
+            return self.ErrorHandler('403 Forbidden',f'{e} : {UserName,UserPw}')
         DB=StructDB(UserUID,AuthenticatedName,AuthenticatedPassword)
         self.ServerUsersDB.add(DB)
         self.log(f"[ New DataBase Constructed ] ==> DBID : \033[95m{DB.DataBaseID}\033[0m")
         self.log(f"[ SignUp User ] ==> UUID : \033[96m{UserUID}\033[0m")
         self.HandleSaveDB()
-        return self.HandleMultiFileRequest('SignUp Successful',f'SignUp Successful! \n User : {UserName}','Your registration has been successfully completed. You can start using our services.')
+        return self.HandleTextFileRequest('/SignUp_Action.html')
 
     def Login_Handler(self, user_id, user_pw ,is_valid_cookie):
         user_uid = uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), user_id)
         # Check if user is already logged in
         if self.Sessions and is_valid_cookie:
-            return self.ErrorHandler(Error_msg='Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
+            return self.ErrorHandler('403 Forbidden','Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
         # Check user credentials and create new session
         for db in self.ServerUsersDB:
             if user_uid == db.UserUID and user_pw == db.UserPw:
                 session_id = self.RegisterUserSession(7, {'UserUID': user_uid})
-                self.log(f"[New Session Constructed] ==> SessionID: \033[96m{session_id}\033[0m")
-                return self.HandleMultiFileRequest('Welcome', f'Welcome! User: {user_id}', f"Dear {user_id}, thank you for logging in. We're excited to have you on board!", Cookie=f'SessionID = {session_id}')        
-        return self.ErrorHandler(Error_msg=f'User ID or password does not exist: {user_id, user_pw}')
+                self.log(f"[ New Session Constructed ] ==> SessionID: \033[96m{session_id}\033[0m")
+                return self.HandleTextFileRequest('/Login_Action.html',Cookie=f'SessionID = {session_id}')       
+        return self.ErrorHandler('422 Unprocessable Entity',f'User ID or password does not exist: {user_id, user_pw}')
 
     
     def Logout_Handler(self,SessionID):
@@ -171,8 +166,8 @@ class Handler:
             if Session.SessionToken == SessionID:
                 self.Sessions.remove(Session)
                 self.log(f"[ Session Destructed ] ==> SessionID : \033[96m{SessionID}\033[0m")
-                return self.HandleMultiFileRequest('Logout',f'Goodbye!',f'Thank you for using our services. We hope to see you again soon!')
-        return self.ErrorHandler(Error_msg=f'To log out, you must first log in. Please verify your account information and log in before attempting to log out')
+                return self.HandleTextFileRequest('/Logout_Action.html')
+        return self.ErrorHandler('403 Forbidden',f'To log out, you must first log in. Please verify your account information and log in before attempting to log out')
 
     def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
         SessionInfo = Session(SessionValidityDays, UserInfo)
