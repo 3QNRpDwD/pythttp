@@ -69,9 +69,7 @@ class Handler:
             return Response
         except FileNotFoundError:
             with open('resource/Error_Form.html','r',encoding='UTF-8') as arg:
-                print(f'해당 resource{result}파일을 찾을수 없습니다.')
-                Error_Response=arg.read().format(msg=f'해당 resource{result}파일을 찾을수 없습니다.').encode('utf-8')
-                return PrepareHeader()._response_headers('404 Not Found',Error_Response) + Error_Response
+                return self.ErrorHandler('404 Not Found',f'The corresponding resource{result}file could not be found.')
 
     def HandlePOSTRequest(self,Request):
         JsonData=parse.unquote(Request[1])
@@ -113,7 +111,7 @@ class Handler:
         with open(f'resource/Error_Form.html','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read()
             Response_file=Response_file.replace('{0}',Error_code).replace('{1}',Error_msg).encode('utf-8')
-
+        self.log(f"[ Handle Error ] ==> Code : \033[91m{Error_code}\033[0m")
         return PrepareHeader()._response_headers('200',Response_file) + Response_file
     
     def addFormatToHTML(self,HtmlText : str, FormatData : dict, style : str):
