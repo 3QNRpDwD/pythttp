@@ -15,11 +15,11 @@ class StructDB:
     StructDBdict: dict =field(init=False,default_factory=dict)
     def __post_init__(self):
         self.DataBaseID = DataBaseID(16).Token
-        self.StructDBdict['UserUID'] = self.UserUID
-        self.StructDBdict['UserName'] = self.UserName
-        self.StructDBdict['UserPw'] = self.UserPw
-        self.StructDBdict['UserEmail'] = self.UserEmail
-        self.StructDBdict['UserUploadFiles'] = self.UserUploadFiles
+        # self.StructDBdict['UserUID'] = self.UserUID
+        # self.StructDBdict['UserName'] = self.UserName
+        # self.StructDBdict['UserPw'] = self.UserPw
+        # self.StructDBdict['UserEmail'] = self.UserEmail
+        # self.StructDBdict['UserUploadFiles'] = self.UserUploadFiles
 
     def __hash__(self):
         return hash(self.DataBaseID)

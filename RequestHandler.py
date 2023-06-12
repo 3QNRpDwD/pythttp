@@ -49,23 +49,18 @@ class Handler:
         result = parse.unquote(Request[0]).split(' ')[1].replace('\\','/')
         try:
             Response = self.HandleTextFileRequest()
-            if '?print=' in result:
-                Response = self.HandleTextFileRequest(msg=result.split('=')[1])
-            elif '.png' in result:
-                Response= self.HandleFileRequest(f'{result}')
-            elif '.ico' in result:
-                Response=self.HandleFileRequest(result)
-            elif '/upload_form' == result:
-                Response= self.HandleTextFileRequest('/upload_form.html')
+            if ('.png' in result or '.ico' in result or '.html' in result):
+                Response= self.HandleFileRequest(result)
+            elif ('/upload_form' == result or '/Feed_Page' == result):
+                Response= self.HandleTextFileRequest(f'{result}.html')
             elif not self.verifySessionCookie(Request)[0]:
-                if '/SignUp_form' == result:
-                    Response= self.HandleTextFileRequest('/SignUp_form.html')
-                elif '/Login_form' == result:
-                    Response= self.HandleTextFileRequest('/Login_form.html')
-            elif (self.verifySessionCookie(Request)[0] and '/Logout_form' == result):
-                Response= self.HandleTextFileRequest('/Logout_form.html')
-            elif '.html' in result:
-                Response=self.HandleTextFileRequest(result)
+                if ('/SignUp_form' == result or '/Login_form' == result):
+                    Response= self.HandleTextFileRequest(f'{result}.html')
+            elif (self.verifySessionCookie(Request)[0]):
+                if '/Logout_form' == result:
+                    Response= self.HandleTextFileRequest(f'{result}.html')
+                elif '/Account_Info' == result:
+                    Response= self.HandleAccountFileRequest(Request)
             return Response
         except FileNotFoundError:
             with open('resource/Error_Form.html','r',encoding='UTF-8') as arg:
@@ -76,14 +71,16 @@ class Handler:
         DictPostData=json.loads(JsonData)
         Form=DictPostData['Form']
         Response=self.HandleTextFileRequest()
-        is_valid_cookie,cookie_value=self.verifySessionCookie(Request[0])
+        is_valid_cookie,cookie_value,session=self.verifySessionCookie(Request[0])
         try:
             if Form == 'SignUp':
-                Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
+                Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserEmail'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
             elif Form == 'Login':
                 Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'],is_valid_cookie)
             elif Form == 'Logout':
                 Response=self.Logout_Handler(cookie_value)
+            elif Form == 'Account':
+                Response=self.UpdateAccountInfo(DictPostData,session)
         except Exception as e:
             Response=self.ErrorHandler('400 Bad Request',e)
         return Response
@@ -94,11 +91,11 @@ class Handler:
                 Values = data.split('SessionID=')[1]
                 for Session in self.Sessions:
                     if Values==Session.SessionToken:
-                        return True, Values
-        return False, None
+                        return True, Values ,Session
+        return False, None, None
 
-    def HandleFileRequest(self,img_file='/a.png'):
-        with open(f'resource{img_file}', 'rb') as ImgFile:
+    def HandleFileRequest(self,file='/a.png'):
+        with open(f'resource{file}', 'rb') as ImgFile:
             Response_file=ImgFile.read()
             return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
         
@@ -110,9 +107,9 @@ class Handler:
     def ErrorHandler(self,Error_code,Error_msg):
         with open(f'resource/Error_Form.html','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read()
-            Response_file=Response_file.replace('{0}',Error_code).replace('{1}',Error_msg).encode('utf-8')
-        self.log(f"[ Handle Error ] ==> Code : \033[91m{Error_code}\033[0m")
-        return PrepareHeader()._response_headers('200',Response_file) + Response_file
+            Response_file=Response_file.format(Error_code,Error_msg).encode('utf-8')
+        self.log(f"[ Handle Error ] ==> Code : \033[35m{Error_code}\033[0m")
+        return PrepareHeader()._response_headers(Error_code,Response_file) + Response_file
     
     def addFormatToHTML(self,HtmlText : str, FormatData : dict, style : str):
         Format=''
@@ -127,7 +124,7 @@ class Handler:
             self.ServerDB['Img']={file_name:f'/ImgFileUpload/{file_name}'}
             return file_name
 
-    def SignUp_Handler(self,UserID,UserName,UserPw,is_valid_cookie):
+    def SignUp_Handler(self,UserID,UserEmail,UserName,UserPw,is_valid_cookie):
         UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
         if self.Sessions and is_valid_cookie:
             return self.ErrorHandler('403 Forbidden','Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
@@ -138,26 +135,25 @@ class Handler:
             AuthenticatedName,AuthenticatedPassword=Verify().VerifyCredentials(UserName, UserPw)
         except Exception as e:
             return self.ErrorHandler('403 Forbidden',f'{e} : {UserName,UserPw}')
-        DB=StructDB(UserUID,AuthenticatedName,AuthenticatedPassword)
+        DB=StructDB(UserUID,AuthenticatedName,AuthenticatedPassword,UserEmail)
         self.ServerUsersDB.add(DB)
-        self.log(f"[ New DataBase Constructed ] ==> DBID : \033[95m{DB.DataBaseID}\033[0m")
+        self.log(f"[ New DataBase Constructed ] ==> DBID : \033[36m{DB.DataBaseID}\033[0m")
         self.log(f"[ SignUp User ] ==> UUID : \033[96m{UserUID}\033[0m")
         self.HandleSaveDB()
         return self.HandleTextFileRequest('/SignUp_Action.html')
 
-    def Login_Handler(self, user_id, user_pw ,is_valid_cookie):
-        user_uid = uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), user_id)
+    def Login_Handler(self, UserID, UserPw, is_valid_cookie):
+        UserUID = uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
         # Check if user is already logged in
         if self.Sessions and is_valid_cookie:
             return self.ErrorHandler('403 Forbidden','Warning: You are already logged in. There is no need to log in again. You can continue using the current account.')
         # Check user credentials and create new session
         for db in self.ServerUsersDB:
-            if user_uid == db.UserUID and user_pw == db.UserPw:
-                session_id = self.RegisterUserSession(7, {'UserUID': user_uid})
+            if (UserUID == db.UserUID and UserPw == db.UserPw):
+                session_id = self.RegisterUserSession(7, {'UserUID': UserUID, 'DataBaseID':db.DataBaseID})
                 self.log(f"[ New Session Constructed ] ==> SessionID: \033[96m{session_id}\033[0m")
                 return self.HandleTextFileRequest('/Login_Action.html',Cookie=f'SessionID = {session_id}')       
-        return self.ErrorHandler('422 Unprocessable Entity',f'User ID or password does not exist: {user_id, user_pw}')
-
+        return self.ErrorHandler('422 Unprocessable Entity',f'User ID or password does not exist: {UserID, UserPw}')
     
     def Logout_Handler(self,SessionID):
         for Session in self.Sessions:
@@ -166,6 +162,30 @@ class Handler:
                 self.log(f"[ Session Destructed ] ==> SessionID : \033[96m{SessionID}\033[0m")
                 return self.HandleTextFileRequest('/Logout_Action.html')
         return self.ErrorHandler('403 Forbidden',f'To log out, you must first log in. Please verify your account information and log in before attempting to log out')
+    
+    def HandleAccountFileRequest(self,Request):
+        DataBaseID=self.verifySessionCookie(Request)[2].UserInfo['DataBaseID']
+        for db in self.ServerUsersDB:
+            if DataBaseID == db.DataBaseID:
+                Username=db.UserName
+                UserUID=db.UserUID
+                Useremail=db.UserEmail
+        with open(f'resource/Account_Info.html','r',encoding='UTF-8') as TextFile:
+            Response_file=TextFile.read()
+            Response_file=Response_file.format(UserName=Username,UserUID=UserUID,UserEmail=Useremail,UserBirthDate='None').encode('utf-8')
+        return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
+    
+    def UpdateAccountInfo(self,newUserInfo,session):
+        DataBaseID=session.UserInfo['DataBaseID']
+        for DataBase in self.ServerUsersDB:
+            if DataBaseID == DataBase.DataBaseID:
+                DataBase.UserName=newUserInfo['UserName']
+                DataBase.UserEmail=newUserInfo['UserEmail']
+                if DataBase.UserPw!=newUserInfo['UserPw']:
+                    DataBase.UserPw=newUserInfo['UserPw']
+                    self.Logout_Handler(session.SessionToken)   
+            self.HandleSaveDB()
+            return self.HandleTextFileRequest('/Account_Action.html')
 
     def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
         SessionInfo = Session(SessionValidityDays, UserInfo)
@@ -175,13 +195,13 @@ class Handler:
     def HandleSaveDB(self):
         with open(f'resource/ServerUserDB.DB','wb') as DBfile:
             pickle.dump(self.ServerUsersDB,DBfile)
-            self.log(f"[ Database Save Successful ] ==> path : \033[95mresource/ServerUserDB.DB\033[0m")
+            self.log(f"[ Database Save Successful ] ==> path : \033[34mresource/ServerUserDB.DB\033[0m")
 
     def HandleloadDB(self):
         try:
             with open(f'resource/ServerUserDB.DB','rb') as DBfile:
                 self.ServerUsersDB=pickle.load(DBfile)
-                self.log(f"[ Database Load Successful ] ==> path : \033[95mresource/ServerUserDB.DB\033[0m")
+                self.log(f"[ Database Load Successful ] ==> path : \033[34mresource/ServerUserDB.DB\033[0m")
         except FileNotFoundError:
             pass
 
@@ -204,7 +224,7 @@ class Session:
     SessionValidity: float = field(init=False, default=None)
     SessionValidityDays: int
     UserInfo: dict = field(default_factory=dict)
-    SessionDict: dict = field(init=False, default_factory=dict)
+    #SessionDict: dict = field(init=False, default_factory=dict)
 
     def __post_init__(self):
         """
@@ -212,9 +232,9 @@ class Session:
         """
         self.SessionToken = SessionID(16).Token
         self.SessionValidity = (datetime.now() + timedelta(days=self.SessionValidityDays)).timestamp()
-        self.SessionDict['SessionID'] = self.SessionToken
-        self.SessionDict['SessionValidity'] = self.SessionValidity
-        self.SessionDict['UserInfo'] = self.UserInfo
+        # self.SessionDict['SessionID'] = self.SessionToken
+        # self.SessionDict['SessionValidity'] = self.SessionValidity
+        # self.SessionDict['UserInfo'] = self.UserInfo
 
     def __hash__(self):
         return hash(self.SessionToken)

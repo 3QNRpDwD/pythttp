@@ -27,16 +27,16 @@ class HyperTextTransferProtocol:
             self.s.close()
 
     def BindAddress(self, address='0.0.0.0', port=80):
-        external_ip = request.urlopen('https://ident.me').read().decode('utf8')  
+        #external_ip = request.urlopen('https://ident.me').read().decode('utf8')  
         self.s.bind((address, port))
-        self.log(f"[ Server started on ] ==> ip/port : \033[94m{external_ip}:{port}\033[0m")
+        #self.log(f"[ Server started on ] ==> ip/port : \033[32m{external_ip}:{port}\033[0m")
 
     def listen(self, limit=0):
         self.s.listen(limit)
 
     def AcceptConnection(self):
         self.c, self.addr = self.s.accept()
-        self.log(msg=f"[ Connected with ] ==> ip : \033[32m{self.addr}\033[0m")
+        self.log(msg=f"[ Connected with ] ==> ip : \033[92m{self.addr}\033[0m")
         return self.c, self.addr
     
     def Receive(self, socket=None, address=None, max_recv_size=1):
@@ -57,9 +57,9 @@ class HyperTextTransferProtocol:
                 if max_buf_size == len(post_body):
                     break
                 buf_size = buf_size * 2
-            self.log(msg=f"[ {parse.unquote(header_list[0])} request from] ==> ip: \033[33m{address}\033[0m")
+            self.log(msg=f"[ {parse.unquote(header_list[0])} request from] ==> ip: \033[93m{address}\033[0m")
             return header_list , post_body
-        self.log(msg=f"[ {parse.unquote(header_list[0])} request from] ==> ip: \033[33m{address}\033[0m")
+        self.log(msg=f"[ {parse.unquote(header_list[0])} request from] ==> ip: \033[93m{address}\033[0m")
         return header_list
 
     def ExtractPostBodySize(self, header):
@@ -78,7 +78,7 @@ class HyperTextTransferProtocol:
         return thread_name,thread
 
     def SendResponse(self,Response,socket_and_addres):
-        addr = f'\033[31m{socket_and_addres[1]}\033[0m'
+        addr = f'\033[91m{socket_and_addres[1]}\033[0m'
         socket_and_addres[0][0].send(Response)
         socket_and_addres[0][0].close()
         self.log(msg=f'[ Disconnected from ] ==> ip: {addr}')
