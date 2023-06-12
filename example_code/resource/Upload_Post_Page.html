@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>게시물 작성</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 20px;
+        }
+    .modal-container {
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+        width: 100%;
+        margin: 0 auto; /* Updated: Center align the modal horizontally */
+        margin-top: 100px;
+        overflow: hidden;
+        }
+    .modal-center {
+        align-items: center; /* Added: Center align the modal vertically */
+        }
+    .modal-header {
+        padding: 10px 20px;
+        background-color: #f2f2f2;
+        }
+    .modal-header h1 {
+        margin: 0;
+        font-size: 20px;
+        }
+    .modal-body {
+        padding: 20px;
+        }
+    .modal-footer {
+        padding: 5px 20px;
+        background-color: #f2f2f2;
+        text-align: right;
+        }
+    .modal-close {
+        cursor: pointer;
+        font-size: 18px;
+        }
+    .modal-close:hover {
+        color: red;
+        }
+    form {
+        display: flex;
+        flex-direction: column;
+        }
+    label {
+        margin-bottom: 5px;
+        font-weight: bold;
+        }
+    input[type="text"],
+    textarea {
+        margin-bottom: 10px;
+        padding: 5px;
+        }
+    input[type="file"] {
+        margin-bottom: 10px;
+        }
+    button {
+        padding: 8px 16px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        }
+    #openModal {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    #openModal:hover {
+      background-color: #4CAF50;
+    }
+    .center-button {
+        display: block;
+        margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <button id="openModal" class="center-button">게시물 작성</button>
+
+  <div id="modal" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h1>게시물 작성</h1>
+        <span class="modal-close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="postForm">
+          <label for="title">제목:</label>
+          <input type="text" id="title" name="title" required>
+          <label for="content">내용:</label>
+          <textarea id="content" name="content" required></textarea>
+          <label for="image">이미지:</label>
+          <input type="file" id="image" name="image">
+          <button type="submit">게시물 등록</button>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button id="closeModal" class="modal-close">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 모달 관련 요소 선택
+    const openModalButton = document.getElementById('openModal');
+    const closeModalButton = document.getElementById('closeModal');
+    const modalOverlay = document.getElementById('modal');
+    const modalClose = document.querySelector('.modal-close');
+
+    // 모달 열기 버튼 클릭 이벤트 처리
+    openModalButton.addEventListener('click', () => {
+    modalOverlay.style.display = 'flex';
+    });
+
+    // 모달 닫기 버튼 클릭 이벤트 처리
+    closeModalButton.addEventListener('click', () => {
+    modalOverlay.style.display = 'none';
+    });
+
+    // 모달 close 버튼 클릭 이벤트 처리
+    modalClose.addEventListener('click', () => {
+    modalOverlay.style.display = 'none';
+    });
+    
+
+    // 게시물 작성 폼 제출 처리
+    const form = document.getElementById('postForm');
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault(); // 폼 제출 기본 동작 중단
+
+      const title = document.getElementById('title').value;
+      const content = document.getElementById('content').value;
+      const image = document.getElementById('image').files[0];
+
+      // JSON 형식으로 데이터 생성
+      const postData = {
+        title: title,
+        content: content
+      };
+
+      if (image) {
+        // FileReader를 사용하여 이미지 파일 내용 읽기
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const imageData = event.target.result;
+          postData.image = imageData;
+
+          // 서버에 업로드할 준비를 한 후, postData를 서버로 전송하는 코드를 추가해야 합니다.
+          // 이 예시에서는 서버로의 전송 부분은 구현되어 있지 않습니다.
+          // 서버에는 해당 JSON 데이터를 받아 처리하는 엔드포인트가 필요합니다.
+
+          console.log(postData); // 테스트를 위해 콘솔에 출력
+        };
+        reader.readAsDataURL(image);
+      } else {
+        // 이미지가 없을 경우 데이터를 서버로 전송합니다.
+        console.log(postData); // 테스트를 위해 콘솔에 출력
+      }
+
+      // 모달 닫기
+      modalOverlay.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
