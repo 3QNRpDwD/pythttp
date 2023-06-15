@@ -9,6 +9,7 @@ import base64
 import json
 import uuid
 import re
+import os
 
 
 class Handler:
@@ -17,7 +18,7 @@ class Handler:
         self.Thread=self.http.Thread
         self.ServerUsersDB=set([])
         self.Sessions = set([])
-        self.ServerDB={}
+        self.ServerPostDB=[]
         self.log=Log().logging
         self.HandleloadDB()
 
@@ -40,7 +41,7 @@ class Handler:
         elif 'POST' in first_line[0]:
             Response=self.HandlePOSTRequest(Request)
         else:
-            raise Exception('This communication is not HTTP protocol')
+            Response=self.ErrorHandler('405 Method Not Allowed',first_line)
         self.http.SendResponse(Response, socket_and_address)
         self.Thread.find_stopped_thread()
         self.Thread.ThreadDestructor(thread_name, client_address)
@@ -49,10 +50,12 @@ class Handler:
         result = parse.unquote(Request[0]).split(' ')[1].replace('\\','/')
         try:
             Response = self.HandleTextFileRequest()
-            if ('.png' in result or '.ico' in result or '.html' in result):
+            if ('.png' in result or '.html' in result or '.css' in result):
                 Response= self.HandleFileRequest(result)
-            elif ('/upload_form' == result or '/Feed_Page' == result):
-                Response= self.HandleTextFileRequest(f'{result}.html')
+            elif '.ico' in result:
+                Response= self.HandleFileRequest(f'/icon/{result}')
+            elif '/Feed_Page' == result:
+                Response= self.UpdateFeedPage()
             elif not self.verifySessionCookie(Request)[0]:
                 if ('/SignUp_form' == result or '/Login_form' == result):
                     Response= self.HandleTextFileRequest(f'{result}.html')
@@ -67,22 +70,24 @@ class Handler:
                 return self.ErrorHandler('404 Not Found',f'The corresponding resource{result}file could not be found.')
 
     def HandlePOSTRequest(self,Request):
-        JsonData=parse.unquote(Request[1])
+        JsonData=parse.unquote(Request[1].decode())
         DictPostData=json.loads(JsonData)
         Form=DictPostData['Form']
         Response=self.HandleTextFileRequest()
         is_valid_cookie,cookie_value,session=self.verifySessionCookie(Request[0])
-        try:
-            if Form == 'SignUp':
-                Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserEmail'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
-            elif Form == 'Login':
-                Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'],is_valid_cookie)
-            elif Form == 'Logout':
-                Response=self.Logout_Handler(cookie_value)
-            elif Form == 'Account':
-                Response=self.UpdateAccountInfo(DictPostData,session)
-        except Exception as e:
-            Response=self.ErrorHandler('400 Bad Request',e)
+        # try:
+        if Form == 'SignUp':
+            Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserEmail'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
+        elif Form == 'Login':
+            Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'],is_valid_cookie)
+        elif Form == 'Logout':
+            Response=self.Logout_Handler(cookie_value)
+        elif Form == 'Account':
+            Response=self.UpdateAccount_Handler(DictPostData,session)
+        elif Form == 'Upload_Post':
+            Response=self.UploadPost_Handler(DictPostData,session)
+        # except Exception as e:
+        #     Response=self.ErrorHandler('500 Internal Server Error',e)
         return Response
 
     def verifySessionCookie(self,RequestData:list):
@@ -150,7 +155,7 @@ class Handler:
         # Check user credentials and create new session
         for db in self.ServerUsersDB:
             if (UserUID == db.UserUID and UserPw == db.UserPw):
-                session_id = self.RegisterUserSession(7, {'UserUID': UserUID, 'DataBaseID':db.DataBaseID})
+                session_id = self.RegisterUserSession(7, {'UserUID': UserUID, 'DataBaseID':db.DataBaseID, 'UserName':db.UserName})
                 self.log(f"[ New Session Constructed ] ==> SessionID: \033[96m{session_id}\033[0m")
                 return self.HandleTextFileRequest('/Login_Action.html',Cookie=f'SessionID = {session_id}')       
         return self.ErrorHandler('422 Unprocessable Entity',f'User ID or password does not exist: {UserID, UserPw}')
@@ -175,7 +180,7 @@ class Handler:
             Response_file=Response_file.format(UserName=Username,UserUID=UserUID,UserEmail=Useremail,UserBirthDate='None').encode('utf-8')
         return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
     
-    def UpdateAccountInfo(self,newUserInfo,session):
+    def UpdateAccount_Handler(self,newUserInfo,session):
         DataBaseID=session.UserInfo['DataBaseID']
         for DataBase in self.ServerUsersDB:
             if DataBaseID == DataBase.DataBaseID:
@@ -186,6 +191,58 @@ class Handler:
                     self.Logout_Handler(session.SessionToken)   
             self.HandleSaveDB()
             return self.HandleTextFileRequest('/Account_Action.html')
+        
+    def UploadPost_Handler(self,PostData,Session):
+        if Session == None:
+            return self.ErrorHandler('403 Forbidden','Warning! You are attempting to post without logging in. If you wish to make a post, please proceed with the login.')
+        PostImageName=''
+        User=Session.UserInfo['UserUID']
+        UploadTime=datetime.now().strftime('%Y-%m-%d_%H%M')
+        try:
+            os.mkdir(f'resource/PostFileUpload/{User}')
+        except:
+            pass
+        PostFileName=f'resource/PostFileUpload/{User}/_{UploadTime}.html'.replace(':','-')
+        title=PostData['title']
+        content=PostData['content']
+        name=Session.UserInfo['UserName']
+        if 'image' in PostData.keys():
+            OriginalData=base64.b64decode(PostData['image'].split(',')[1])
+            PostImageName=f'_{UploadTime}.png'
+            with open(f'resource/PostFileUpload/{User}/{PostImageName}','wb') as ImageFile:
+                ImageFile.write(OriginalData)
+        with open(f'resource/Post_Form.html','r',encoding='UTF-8') as PostFormFile:
+            with open(PostFileName,'w',encoding='UTF-8') as PostTempFile:
+                PostTempFile.write(PostFormFile.read().format(PostTitle=title,PostContent=content,UserName=name,PostImage=PostImageName))
+                self.ServerPostDB.append({str(User):{'Path':f'/_{UploadTime}.html','title':title,'content':content,'name':name}})
+        return self.UpdateFeedPage()
+
+    def UpdateFeedPage(self):
+        FeedPost=''
+        FeedPostForm="""
+        <a href="{Path}">
+        <li>
+          <div class="user-profile">
+            <img src="" alt="{name}">
+          </div>
+          <div class="post-content">
+              <h2>{title}</h2>
+              <p>{content}</p>
+          </div>
+        </li>
+        </a>\n"""
+        with open(f'resource/Feed_Page.html','r+',encoding='UTF-8') as FeedFormFile:
+            FeedForm = FeedFormFile.read()
+        if self.ServerPostDB:
+            for i in self.ServerPostDB:
+                for ID,Post in i.items():
+                    PostFilePath=f'/PostFileUpload/{ID}'+Post['Path'].replace(':','-')
+                    FeedPost+=FeedPostForm.format(Path=PostFilePath,name=Post['name'],title=Post['title'],content=Post['content'])
+        FeedForm = FeedForm.replace('{FeedPost}',FeedPost).encode('UTF-8')
+        with open(f'resource/PostStorage.html','a',encoding='UTF-8') as PostStorage:
+            PostStorage.write(FeedPost)
+        return PrepareHeader()._response_headers('200 OK',FeedForm) + FeedForm
+        
 
     def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
         SessionInfo = Session(SessionValidityDays, UserInfo)
@@ -209,14 +266,12 @@ class Handler:
 class Session:
     """
     Session class represents a data model for storing session information.
-
     Attributes:
         SessionToken (str): The token of the session. It is initialized as a 16-character random value.
         SessionValidity (float): The validity timestamp of the session.
         SessionValidityDays (int): The number of days the session is valid for.
         UserInfo (dict): Additional information about the session's user.
         SessionDict (dict): The dictionary representation of the session information.
-
     Methods:
         __post_init__(): Initializes the SessionToken, SessionValidity, and SessionDict attributes after object creation.
     """
@@ -243,13 +298,11 @@ class Session:
 class SessionID:
     """
     Data class representing a session identifier.
-
     python
     Copy code
     Attributes:
     length (int): The length of the session identifier.
     Token (str): The session token (automatically generated).
-
     """
     length: int
     Token: str = field(init=False, default=None)
@@ -290,4 +343,3 @@ class Verify:
             for item in self.ServerDB.items():
                 return item['user_ID']==self.verified_UserID
         else: return False
-
