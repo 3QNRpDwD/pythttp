@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="icon" href="/icon/favicon.ico">
+  <title>Account Information</title>
+  <link rel="stylesheet" href="/css/Account_Info.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Account Information</h1>
+    <div class="profile">
+      <div class="profile-picture">
+        <img src="/img/profile_picture.png" alt="Profile Picture">
+      </div>
+      <div class="profile-details">
+        <h2>Welcome, {UserName}</h2>
+        <p>ID: {UserUID}</p>
+        <p>Email: {UserEmail}</p>
+        <p>BirthDate: {UserBirthDate}</p>
+      </div>
+    </div>
+    <div class="account-settings">
+      <h2>Account Settings</h2>
+      <form id="accountForm">
+        <label for="username">Username:</label>
+        <input type="name" id="username" name="UserName" value={UserName}>
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="UserPw" value="********">
+
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="UserEmail" value={UserEmail}>
+
+        <label for="UserBirthDate">BirthDate:</label>
+        <input type="text" id="UserBirthDate" name="UserBirthDate" value={UserBirthDate}>
+
+        <button type="submit">Save Changes</button>
+      </form>
+    </div>
+  </div>
+  <script type="text/javascript" src="/js/Account_Info.js"></script>
+</body>
+</html>
