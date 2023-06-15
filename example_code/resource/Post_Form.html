@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+  <title>게시물 페이지</title>
+  <link rel="stylesheet" href="/css/Post_Form.css">
+</head>
+<body>
+  <div class="container">
+    <div class="profile">
+      <img src="/img/profile_picture.png" alt="프로필 사진">
+      <span>{UserName}</span>
+    </div>
+    
+    <div class="post-title">
+      {PostTitle}
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="post-content">
+        {PostContent}
+    </div>
+    
+    <div class="post-image">
+      <img src="{PostImage}" alt="게시한 사진">
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="interactions">
+      <button class="home-button" onclick="location.href='/Index'">Home</button>
+      <button class="share-button">share</button>
+      <button class="like-button">like</button>
+    </div>
+  </div>
+</body>
+</html>

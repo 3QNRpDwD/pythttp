@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>게시물 목록</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
+  <link rel="stylesheet" href="css/Feed_Page.css">
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/Account_Info">계정 정보</a></li>
+        </ul>
+        <ul>
+            <li><a href="/Login_form">로그인</a></li>
+            <li><a href="/SignUp_form">회원가입</a></li>
+        </ul>
+    </nav>
+    <h1>Feed_Page</h1>
+    <a class="logout-button" href="/Logout_form">로그아웃</a>
+    <button id="openModal" class="center-button">게시물 작성</button>
+    <div id="modal" class="modal-overlay">
+      <div class="modal-container">
+        <div class="modal-header">
+            <span class="modal-close" style="float: right;">&times;</span>
+          <h1>게시물 작성</h1>
+        </div>
+        <div class="modal-body">
+          <form id="postForm">
+            <label for="title">제목:</label>
+            <input type="text" id="title" name="title" required>
+            <label for="content">내용:</label>
+            <textarea id="content" name="content" required></textarea>
+            <label for="image">이미지:</label>
+            <input type="file" id="image" name="image">
+            <button type="submit">게시물 등록</button>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button id="closeModal" class="modal-close">닫기</button>
+        </div>
+      </div>
+    </div>
+  <div class="container">
+    <div class="post-wrapper">
+      <ul class="post-list">
+        <a href="PostFileUpload/post1.html">
+        <li>
+          <div class="user-profile">
+            <img src="/img/user1-profile.png" alt="User 1 Profile">
+          </div>
+          <div class="post-content">
+              <h2>게시물 1 제목</h2>
+              <p>게시물 1 설명</p>
+          </div>
+        </li>
+        </a>
+        <a href="PostFileUpload/post2.html">
+        <li>
+          <div class="user-profile">
+            <img src="/img/user2-profile.png" alt="User 2 Profile">
+          </div>
+          <div class="post-content">
+              <h2>게시물 2 제목</h2>
+              <p>게시물 2 설명</p>
+          </div>
+        </li>
+        </a>
+        <a href="PostFileUpload/post3.html">
+        <li>
+          <div class="user-profile">
+            <img src="/img/user3-profile.png" alt="User 3 Profile">
+          </div>
+          <div class="post-content">
+              <h2>게시물 3 제목</h2>
+              <p>게시물 3 설명</p>
+          </div>
+        </li>
+        </a>
+        {FeedPost}
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // 모달 관련 요소 선택
+    const openModalButton = document.getElementById('openModal');
+    const closeModalButton = document.getElementById('closeModal');
+    const modalOverlay = document.getElementById('modal');
+    const modalClose = document.querySelector('.modal-close');
+
+    // 모달 열기 버튼 클릭 이벤트 처리
+    openModalButton.addEventListener('click', () => {
+      modalOverlay.style.display = 'flex';
+    });
+
+    // 모달 닫기 버튼 클릭 이벤트 처리
+    function closeModal() {
+      modalOverlay.style.display = 'none';
+    }
+
+    closeModalButton.addEventListener('click', closeModal);
+    modalClose.addEventListener('click', closeModal);
+
+    // 게시물 작성 폼 제출 처리
+    const form = document.getElementById('postForm');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault(); // 폼 제출 기본 동작 중단
+
+      const title = document.getElementById('title').value;
+      const content = document.getElementById('content').value;
+      const imageFile = document.getElementById('image').files[0];
+
+      let image = null;
+      if (imageFile) {
+        // Image 파일을 base64로 인코딩
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          image = event.target.result;
+          sendPostData(title, content, image);
+        };
+        reader.readAsDataURL(imageFile);
+      } else {
+        sendPostData(title, content, image);
+      }
+    });
+
+    // 게시물 데이터 전송
+    async function sendPostData(title, content, image) {
+      const postData = {
+        Form: 'Upload_Post',
+        title: title,
+        content: content,
+        image: image
+      };
+
+      try {
+        const response = await fetch('/Feed_Page', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(postData)
+        });
+
+        const responseHTML = await response.text();
+        const newPage = document.open('text/html', 'replace');
+        newPage.write(responseHTML);
+        newPage.close();
+      } catch (error) {
+        console.error('Error:', error);
+        // 오류 처리 로직 추가
+      }
+
+      // 모달 닫기
+      closeModal();
+    }
+
+    // 추가된 코드: 모달 오버레이 클릭 시 모달 닫기
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>
