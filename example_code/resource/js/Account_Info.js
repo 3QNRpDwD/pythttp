@@ -1,4 +1,11 @@
-// 이벤트 리스너 추가
+function clearInputValue(input) {
+    input.value = '';
+  };
+
+// function clearInputValue(element) {
+//     element.value = '';
+//   }
+
 document.getElementById("accountForm").addEventListener("submit", function(event) {
     event.preventDefault(); // 기본 제출 동작 방지
 

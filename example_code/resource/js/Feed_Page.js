@@ -1,80 +1,97 @@
-// 모달 관련 요소 선택
-const openModalButton = document.getElementById('openModal');
-const closeModalButton = document.getElementById('closeModal');
-const modalOverlay = document.getElementById('modal');
-const modalClose = document.querySelector('.modal-close');
-
-// 모달 열기 버튼 클릭 이벤트 처리
-openModalButton.addEventListener('click', () => {
-  modalOverlay.style.display = 'flex';
-});
-
-// 모달 닫기 버튼 클릭 이벤트 처리
-function closeModal() {
-  modalOverlay.style.display = 'none';
+function goToPostPage(postId) {
+  // 게시물의 원본 페이지 URL로 이동
+  window.location.href = postId;
 }
 
-closeModalButton.addEventListener('click', closeModal);
-modalClose.addEventListener('click', closeModal);
+var imageFile = null;
+var fileUpload = document.getElementById("file-upload");
+var imagePreview = document.getElementById("image-preview");
+var deleteImage = document.getElementById("delete-image");
+var postForm = document.getElementById("postForm");
 
-// 게시물 작성 폼 제출 처리
-const form = document.getElementById('postForm');
+// 이미지 파일 선택 시 미리보기
+fileUpload.addEventListener("change", function(event) {
+  var file = event.target.files[0];
+  var reader = new FileReader();
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault(); // 폼 제출 기본 동작 중단
+  reader.onload = function(e) {
+    imagePreview.innerHTML = "";
+    var img = document.createElement("img");
+    img.src = e.target.result;
+    img.classList.add("max-w-xs", "max-h-48", "object-contain");
+    imagePreview.appendChild(img);
+  };
 
-  const title = document.getElementById('title').value;
-  const content = document.getElementById('content').value;
-  const imageFile = document.getElementById('image').files[0];
+  reader.readAsDataURL(file);
+  imageFile = file;
+});
 
-  let image = null;
+// 이미지 삭제 버튼 클릭 시
+deleteImage.addEventListener("click", function(event) {
+  imagePreview.innerHTML = "";
+  fileUpload.value = "";
+  imageFile = null;
+});
+
+// 폼 제출 이벤트 처리
+postForm.addEventListener("submit", async function(event) {
+  event.preventDefault(); // 폼의 기본 제출 동작 방지
+
+  // 제목, 내용, 이미지 값 가져오기
+  var title = document.getElementById("title").value;
+  var content = document.getElementById("content").value;
+
+  // 이미지 파일을 Base64로 인코딩
   if (imageFile) {
-    // Image 파일을 base64로 인코딩
-    const reader = new FileReader();
-    reader.onload = function(event) {
-      image = event.target.result;
-      sendPostData(title, content, image);
+    var reader = new FileReader();
+    reader.onloadend = function() {
+      // Base64로 인코딩된 이미지 데이터를 JSON에 포함시키기
+      var imageData = reader.result.split(",")[1];
+      var postData = {
+        Form: 'PostUpload',
+        title: title,
+        content: content,
+        image: imageData
+      };
+
+      // JSON 데이터 서버로 전송
+      sendPostDataToServer(postData);
     };
     reader.readAsDataURL(imageFile);
   } else {
-    sendPostData(title, content, image);
+    var postData = {
+      Form: 'PostUpload',
+      title: title,
+      content: content,
+      image: null
+    };
+
+    // JSON 데이터 서버로 전송
+    sendPostDataToServer(postData);
   }
 });
 
-// 게시물 데이터 전송
-async function sendPostData(title, content, image) {
-  const postData = {
-    Form: 'Upload_Post',
-    title: title,
-    content: content,
-    image: image
-  };
-
+// JSON 데이터를 서버로 전송하는 함수
+async function sendPostDataToServer(postData) {
   try {
-    const response = await fetch('/Feed_Page', {
-      method: 'POST',
+    const response = await fetch("/Feed_Page", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json"
       },
       body: JSON.stringify(postData)
     });
 
-    const responseHTML = await response.text();
-    const newPage = document.open('text/html', 'replace');
-    newPage.write(responseHTML);
-    newPage.close();
+    if (response.ok || response.status === 422 || response.status === 403 || response.status === 400) {
+      const responseHTML = await response.text();
+      const newPage = document.open("text/html", "replace");
+      newPage.write(responseHTML);
+      newPage.close();
+    } else {
+      console.error("Post request failed with status:", response.status);
+    }
   } catch (error) {
-    console.error('Error:', error);
-    // 오류 처리 로직 추가
+    console.error("An error occurred while sending the post data:", error);
   }
-
-  // 모달 닫기
-  closeModal();
+  console.log(postData);
 }
-
-// 추가된 코드: 모달 오버레이 클릭 시 모달 닫기
-modalOverlay.addEventListener('click', (e) => {
-  if (e.target === modalOverlay) {
-    closeModal();
-  }
-});
