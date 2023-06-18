@@ -1,27 +1,27 @@
 .container {
-    width: 400px;
+    max-width: 400px;
     margin: 0 auto;
     padding: 20px;
-    text-align: center;
     background-color: #f2f2f2;
     border: 1px solid #ccc;
     border-radius: 5px;
-    font-family: 'Arial', sans-serif; /* 변경할 폰트 추가 */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* 그림자 효과 추가 */
-}
-h1 {
+    font-family: 'Arial', sans-serif;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  h1 {
     color: #333;
-    font-size: 24px; /* 폰트 크기 조정 */
-    margin-bottom: 10px; /* 여백 추가 */
-}
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
 
-p {
+  p {
     color: #666;
-    font-size: 16px; /* 폰트 크기 조정 */
-    margin-bottom: 20px; /* 여백 추가 */
-}
+    font-size: 16px;
+    margin-bottom: 20px;
+  }
 
-a {
+  a {
     display: inline-block;
     margin-top: 20px;
     padding: 10px 20px;
@@ -29,9 +29,9 @@ a {
     color: #fff;
     text-decoration: none;
     border-radius: 5px;
-    transition: background-color 0.3s ease; /* 부드러운 호버 효과 추가 */
-}
+    transition: background-color 0.3s ease;
+  }
 
-a:hover {
+  a:hover {
     background-color: #3071a9;
-}
+  }
