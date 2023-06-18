@@ -50,27 +50,27 @@ class Handler:
         result = parse.unquote(Request[0]).split(' ')[1].replace('\\','/')
         try:
             Response = self.HandleTextFileRequest()
-            if ('.png' in result or '.html' in result or '.css' in result):
+            if ('.png' in result or '.html' in result or '.css' in result  or '.js' in result or '.ico' in result):
                 Response= self.HandleFileRequest(result)
-            elif '.ico' in result:
-                Response= self.HandleFileRequest(f'/icon/{result}')
             elif '/Feed_Page' == result:
                 Response= self.UpdateFeedPage()
             elif not self.verifySessionCookie(Request)[0]:
                 if ('/SignUp_form' == result or '/Login_form' == result):
-                    Response= self.HandleTextFileRequest(f'{result}.html')
+                    print(f'/html{result}')
+                    Response= self.HandleTextFileRequest(f'/html{result}.html')
             elif (self.verifySessionCookie(Request)[0]):
                 if '/Logout_form' == result:
-                    Response= self.HandleTextFileRequest(f'{result}.html')
+                    Response= self.HandleTextFileRequest(f'/html{result}.html')
                 elif '/Account_Info' == result:
                     Response= self.HandleAccountFileRequest(Request)
             return Response
         except FileNotFoundError:
-            with open('resource/Error_Form.html','r',encoding='UTF-8') as arg:
-                return self.ErrorHandler('404 Not Found',f'The corresponding resource{result}file could not be found.')
+            with open('resource/html/Error_Form.html','r',encoding='UTF-8') as arg:
+                return self.ErrorHandler('404 Not Found',f'The corresponding {result} file could not be found.')
 
     def HandlePOSTRequest(self,Request):
         JsonData=parse.unquote(Request[1].decode())
+        print(JsonData)
         DictPostData=json.loads(JsonData)
         Form=DictPostData['Form']
         Response=self.HandleTextFileRequest()
@@ -84,7 +84,7 @@ class Handler:
             Response=self.Logout_Handler(cookie_value)
         elif Form == 'Account':
             Response=self.UpdateAccount_Handler(DictPostData,session)
-        elif Form == 'Upload_Post':
+        elif Form == 'PostUpload':
             Response=self.UploadPost_Handler(DictPostData,session)
         # except Exception as e:
         #     Response=self.ErrorHandler('500 Internal Server Error',e)
@@ -99,18 +99,18 @@ class Handler:
                         return True, Values ,Session
         return False, None, None
 
-    def HandleFileRequest(self,file='/a.png'):
+    def HandleFileRequest(self,file='/img/a.png'):
         with open(f'resource{file}', 'rb') as ImgFile:
             Response_file=ImgFile.read()
             return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
         
-    def HandleTextFileRequest(self,flie='/Index.html',Cookie=None):
+    def HandleTextFileRequest(self,flie='/html/Index.html',Cookie=None):
         with open(f'resource{flie}','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read().encode('UTF-8')
         return PrepareHeader()._response_headers('200 OK',Response_file,Cookie) + Response_file
     
     def ErrorHandler(self,Error_code,Error_msg):
-        with open(f'resource/Error_Form.html','r',encoding='UTF-8') as TextFile:
+        with open(f'resource/html/Error_Form.html','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read()
             Response_file=Response_file.format(Error_code,Error_msg).encode('utf-8')
         self.log(f"[ Handle Error ] ==> Code : \033[35m{Error_code}\033[0m")
@@ -122,12 +122,6 @@ class Handler:
             Format+=f'{style.format(val=val,key=key)}'
         HtmlText=HtmlText.format(Format=Format)
         return HtmlText
-    
-    def ImgFileUpload(self,img_file,file_name):
-        with open(f'resource/ImgFileUpload/{file_name}', 'wb') as ImgFile:
-            ImgFile.write(img_file)
-            self.ServerDB['Img']={file_name:f'/ImgFileUpload/{file_name}'}
-            return file_name
 
     def SignUp_Handler(self,UserID,UserEmail,UserName,UserPw,is_valid_cookie):
         UserUID=uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
@@ -145,7 +139,7 @@ class Handler:
         self.log(f"[ New DataBase Constructed ] ==> DBID : \033[36m{DB.DataBaseID}\033[0m")
         self.log(f"[ SignUp User ] ==> UUID : \033[96m{UserUID}\033[0m")
         self.HandleSaveDB()
-        return self.HandleTextFileRequest('/SignUp_Action.html')
+        return self.HandleTextFileRequest('/html/SignUp_Action.html')
 
     def Login_Handler(self, UserID, UserPw, is_valid_cookie):
         UserUID = uuid.uuid5(uuid.UUID('30076a53-4522-5b28-af4c-b30c260a456d'), UserID)
@@ -157,7 +151,7 @@ class Handler:
             if (UserUID == db.UserUID and UserPw == db.UserPw):
                 session_id = self.RegisterUserSession(7, {'UserUID': UserUID, 'DataBaseID':db.DataBaseID, 'UserName':db.UserName})
                 self.log(f"[ New Session Constructed ] ==> SessionID: \033[96m{session_id}\033[0m")
-                return self.HandleTextFileRequest('/Login_Action.html',Cookie=f'SessionID = {session_id}')       
+                return self.HandleTextFileRequest('/html/Login_Action.html',Cookie=f'SessionID = {session_id}')       
         return self.ErrorHandler('422 Unprocessable Entity',f'User ID or password does not exist: {UserID, UserPw}')
     
     def Logout_Handler(self,SessionID):
@@ -165,32 +159,37 @@ class Handler:
             if Session.SessionToken == SessionID:
                 self.Sessions.remove(Session)
                 self.log(f"[ Session Destructed ] ==> SessionID : \033[96m{SessionID}\033[0m")
-                return self.HandleTextFileRequest('/Logout_Action.html')
+                return self.HandleTextFileRequest('/html/Logout_Action.html')
         return self.ErrorHandler('403 Forbidden',f'To log out, you must first log in. Please verify your account information and log in before attempting to log out')
     
     def HandleAccountFileRequest(self,Request):
-        DataBaseID=self.verifySessionCookie(Request)[2].UserInfo['DataBaseID']
-        for db in self.ServerUsersDB:
-            if DataBaseID == db.DataBaseID:
-                Username=db.UserName
-                UserUID=db.UserUID
-                Useremail=db.UserEmail
-        with open(f'resource/Account_Info.html','r',encoding='UTF-8') as TextFile:
+        DataBase=self.getDatabase(self.verifySessionCookie(Request)[2].UserInfo['DataBaseID'])
+        Username=DataBase.UserName
+        UserUID=DataBase.UserUID
+        Useremail=DataBase.UserEmail
+        UserBirthDate=DataBase.UserBirthDate
+        UserPw=DataBase.UserPw
+        with open(f'resource/html/Account_Info.html','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read()
-            Response_file=Response_file.format(UserName=Username,UserUID=UserUID,UserEmail=Useremail,UserBirthDate='None').encode('utf-8')
+            Response_file=Response_file.format(UserName=Username,UserUID=UserUID,UserPw=UserPw,UserEmail=Useremail,BirthDate=UserBirthDate).encode('utf-8')
         return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
     
     def UpdateAccount_Handler(self,newUserInfo,session):
-        DataBaseID=session.UserInfo['DataBaseID']
+        DataBase=self.getDatabase(session.UserInfo['DataBaseID'])
+        DataBase.UserName=newUserInfo['UserName']
+        DataBase.UserEmail=newUserInfo['UserEmail']
+        DataBase.UserBirthDate=newUserInfo['BirthDate']
+        if DataBase.UserPw!=newUserInfo['UserPw']:
+            DataBase.UserPw=newUserInfo['UserPw']
+            self.Logout_Handler(session.SessionToken)   
+        self.HandleSaveDB()
+        return self.HandleTextFileRequest('/html/Account_Action.html')
+    
+    def getDatabase(self,DataBaseID):
         for DataBase in self.ServerUsersDB:
             if DataBaseID == DataBase.DataBaseID:
-                DataBase.UserName=newUserInfo['UserName']
-                DataBase.UserEmail=newUserInfo['UserEmail']
-                if DataBase.UserPw!=newUserInfo['UserPw']:
-                    DataBase.UserPw=newUserInfo['UserPw']
-                    self.Logout_Handler(session.SessionToken)   
-            self.HandleSaveDB()
-            return self.HandleTextFileRequest('/Account_Action.html')
+                print(DataBase)
+                return DataBase
         
     def UploadPost_Handler(self,PostData,Session):
         if Session == None:
@@ -206,12 +205,12 @@ class Handler:
         title=PostData['title']
         content=PostData['content']
         name=Session.UserInfo['UserName']
-        if 'image' in PostData.keys():
-            OriginalData=base64.b64decode(PostData['image'].split(',')[1])
+        if PostData['image'] != None:
+            OriginalData=base64.b64decode(PostData['image'])
             PostImageName=f'_{UploadTime}.png'
             with open(f'resource/PostFileUpload/{User}/{PostImageName}','wb') as ImageFile:
                 ImageFile.write(OriginalData)
-        with open(f'resource/Post_Form.html','r',encoding='UTF-8') as PostFormFile:
+        with open(f'resource/html/Post_Form.html','r',encoding='UTF-8') as PostFormFile:
             with open(PostFileName,'w',encoding='UTF-8') as PostTempFile:
                 PostTempFile.write(PostFormFile.read().format(PostTitle=title,PostContent=content,UserName=name,PostImage=PostImageName))
                 self.ServerPostDB.append({str(User):{'Path':f'/_{UploadTime}.html','title':title,'content':content,'name':name}})
@@ -220,26 +219,23 @@ class Handler:
     def UpdateFeedPage(self):
         FeedPost=''
         FeedPostForm="""
-        <a href="{Path}">
-        <li>
-          <div class="user-profile">
-            <img src="" alt="{name}">
-          </div>
-          <div class="post-content">
-              <h2>{title}</h2>
-              <p>{content}</p>
-          </div>
-        </li>
-        </a>\n"""
-        with open(f'resource/Feed_Page.html','r+',encoding='UTF-8') as FeedFormFile:
+            <div class="mainform">
+                <div class="border rounded-lg p-4 cursor-pointer" onclick="goToPostPage('{0}')">
+                    <div class="post">
+                        <h2 class="text-lg font-bold mb-2">{1}</h2>
+                        <p>{2}</p>
+                    </div>
+                </div>
+            </div>\n"""
+        with open(f'resource/html/Feed_Page.html','r+',encoding='UTF-8') as FeedFormFile:
             FeedForm = FeedFormFile.read()
         if self.ServerPostDB:
             for i in self.ServerPostDB:
                 for ID,Post in i.items():
                     PostFilePath=f'/PostFileUpload/{ID}'+Post['Path'].replace(':','-')
-                    FeedPost+=FeedPostForm.format(Path=PostFilePath,name=Post['name'],title=Post['title'],content=Post['content'])
+                    FeedPost+=FeedPostForm.format(PostFilePath,Post['title'],Post['content'])
         FeedForm = FeedForm.replace('{FeedPost}',FeedPost).encode('UTF-8')
-        with open(f'resource/PostStorage.html','a',encoding='UTF-8') as PostStorage:
+        with open(f'resource/html/PostStorage.html','a',encoding='UTF-8') as PostStorage:
             PostStorage.write(FeedPost)
         return PrepareHeader()._response_headers('200 OK',FeedForm) + FeedForm
         

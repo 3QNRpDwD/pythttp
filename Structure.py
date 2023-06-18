@@ -11,6 +11,7 @@ class StructDB:
     UserName: str
     UserPw: str
     UserEmail: str = None
+    UserBirthDate: str = None
     UserUploadFiles: dict =field(default_factory=dict)
     StructDBdict: dict =field(init=False,default_factory=dict)
     def __post_init__(self):
@@ -84,9 +85,9 @@ class PrepareHeader:
 
     def _response_headers(self,status_code,Content,Cookie=None):
         headers = {
-            'Date': HttpDateTime().http_date_time,
-            'Server':'longinus',
-            'Cache-Control': 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0',
+            'Date' : HttpDateTime().http_date_time,
+            'Server' : 'longinus',
+            'Cache-Control' : 'max-age=3600 ,no-cache ,private',
             'Pragma' : 'no-cache',
             'Content-Length': len(Content),
             'Set-Cookie' : Cookie
