@@ -1,88 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <link rel="icon" href="/icon/favicon.ico">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>게시물 목록</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
-  <link rel="stylesheet" href="css/Feed_Page.css">
+  <title>게시판</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="/css/Feed_Page.css" rel="stylesheet" >
 </head>
+
 <body>
-    <nav>
-        <ul>
-            <li><a href="/Account_Info">계정 정보</a></li>
-        </ul>
-        <ul>
-            <li><a href="/Login_form">로그인</a></li>
-            <li><a href="/SignUp_form">회원가입</a></li>
-        </ul>
-    </nav>
-    <h1>Feed_Page</h1>
-    <a class="logout-button" href="/Logout_form">로그아웃</a>
-    <button id="openModal" class="center-button">게시물 작성</button>
-    <div id="modal" class="modal-overlay">
-      <div class="modal-container">
-        <div class="modal-header">
-            <span class="modal-close" style="float: right;">&times;</span>
-          <h1>게시물 작성</h1>
-        </div>
-        <div class="modal-body">
-          <form id="postForm">
-            <label for="title">제목:</label>
-            <input type="text" id="title" name="title" required>
-            <label for="content">내용:</label>
-            <textarea id="content" name="content" required></textarea>
-            <label for="image">이미지:</label>
-            <input type="file" id="image" name="image">
-            <button type="submit">게시물 등록</button>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button id="closeModal" class="modal-close">닫기</button>
+  <div class="bg-gray-100 min-h-screen">
+    <header class="bg-gray-800 text-white py-4">
+      <div class="container mx-auto px-4 flex items-center justify-between">
+        <h1 class="text-2xl font-bold">게시판</h1>
+        <form class="w-64">
+          <div class="relative">
+            <input type="text" placeholder="검색" class="bg-white text-gray-800 rounded-full pl-8 pr-4 py-2 w-full focus:outline-none focus:shadow-outline">
+            <div class="absolute top-0 left-0 ml-2 mt-2">
+              <svg class="w-4 h-4 fill-current text-gray-500" viewBox="0 0 24 24">
+                <path
+                  d="M21.707,20.293l-3.182-3.182c0.999-1.272,1.59-2.842,1.59-4.564C20.115,5.074,15.041,0,9.057,0S-2.5,5.074-2.5,11.057S2.574,22.115,8.557,22.115c1.722,0,3.292-0.591,4.564-1.59l3.182,3.182c0.188,0.188,0.442,0.293,0.707,0.293S21.52,20.481,21.707,20.293zM8.557,18.115C4.71,18.115,1.5,14.904,1.5,11.057C1.5,7.21,4.71,4,8.557,4c3.847,0,7.057,3.21,7.057,7.057C15.615,14.904,12.404,18.115,8.557,18.115z">
+                </path>
+              </svg>
+            </div>
+          </div>
+        </form>
+      </div>
+    </header>
+
+    <main class="py-8">
+      <div class="container mx-auto px-4">
+        <div class="mainform"></div>
+          <div class="border rounded-lg p-4 mb-8">
+            <!-- 게시물 작성 폼 -->
+            <div class="border rounded-lg p-4 mb-4">
+              <!-- 게시물 작성 폼 -->
+              <form id="postForm">
+                <div class="mb-4">
+                  <label for="title" class="block text-gray-800 font-bold mb-2">제목</label>
+                  <input type="text" id="title" class="w-full px-3 py-2 border rounded focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                  <label for="content" class="block text-gray-700 font-bold mb-2">내용</label>
+                  <textarea id="content" class="w-full px-3 py-2 border rounded focus:outline-none focus:shadow-outline"></textarea>
+                </div>
+                <div class="mb-4">
+                  <label for="image" class="block text-gray-700 font-bold mb-2">사진 업로드</label>
+                  <div class="flex items-center justify-between">
+                    <label for="file-upload" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded cursor-pointer">
+                      파일 선택
+                    </label>
+                    <span id="file-name" class="ml-2"></span>
+                    <button type="button" id="delete-image" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded cursor-pointer ml-2">삭제</button>
+                  </div>
+                  <input type="file" id="file-upload" class="hidden" accept="image/png">
+                  <div id="image-preview" class="mt-4"></div>
+                </div>
+                
+                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-12 rounded focus:outline-none focus:shadow-outline">작성하기</button>
+              </form>
+            </div>
+
+          <!-- 게시물 리스트 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div class="mainform">
+                <div class="border rounded-lg p-4 cursor-pointer" onclick="goToPostPage('post1')">
+                  <div class="post">
+                    <h2 class="text-lg font-bold mb-2">게시물 1</h2>
+                    <p>게시물 1 내용...</p>
+                  </div>
+                </div>
+              </div>
+              <div class="mainform">
+                <div class="border rounded-lg p-4 cursor-pointer" onclick="goToPostPage('post2')">
+                  <div class="post">
+                    <h2 class="text-lg font-bold mb-2">게시물 2</h2>
+                    <p>게시물 2 내용...</p>
+                  </div>
+                </div>
+              </div>
+              <div class="mainform">
+                <div class="border rounded-lg p-4 cursor-pointer" onclick="goToPostPage('post3')">
+                  <div class="post">
+                    <h2 class="text-lg font-bold mb-2">게시물 3</h2>
+                    <p>게시물 3 내용...</p>
+                  </div>
+                </div>
+              </div>
+              <!-- 추가 게시물 -->
+              {FeedPost}
+            </div>
+          <script type="text/javascript" src="/js/Feed_Page.js"></script>
         </div>
       </div>
-    </div>
-  <div class="container">
-    <div class="post-wrapper">
-      <ul class="post-list">
-        <a href="PostFileUpload/post1.html">
-        <li>
-          <div class="user-profile">
-            <img src="/img/user1-profile.png" alt="User 1 Profile">
-          </div>
-          <div class="post-content">
-              <h2>게시물 1 제목</h2>
-              <p>게시물 1 설명</p>
-          </div>
-        </li>
-        </a>
-        <a href="PostFileUpload/post2.html">
-        <li>
-          <div class="user-profile">
-            <img src="/img/user2-profile.png" alt="User 2 Profile">
-          </div>
-          <div class="post-content">
-              <h2>게시물 2 제목</h2>
-              <p>게시물 2 설명</p>
-          </div>
-        </li>
-        </a>
-        <a href="PostFileUpload/post3.html">
-        <li>
-          <div class="user-profile">
-            <img src="/img/user3-profile.png" alt="User 3 Profile">
-          </div>
-          <div class="post-content">
-              <h2>게시물 3 제목</h2>
-              <p>게시물 3 설명</p>
-          </div>
-        </li>
-        </a>
-        {FeedPost}
-      </ul>
-    </div>
+    </main>
   </div>
-  <script type="text/javascript" src="/js/Feed_Page.js"></script>
 </body>
+
 </html>
