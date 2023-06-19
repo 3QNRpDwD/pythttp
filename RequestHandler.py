@@ -188,37 +188,43 @@ class Handler:
     def getDatabase(self,DataBaseID):
         for DataBase in self.ServerUsersDB:
             if DataBaseID == DataBase.DataBaseID:
-                print(DataBase)
                 return DataBase
         
-    def UploadPost_Handler(self,PostData,Session):
-        if Session == None:
-            return self.ErrorHandler('403 Forbidden','Warning! You are attempting to post without logging in. If you wish to make a post, please proceed with the login.')
-        PostImageName=''
-        User=Session.UserInfo['UserUID']
-        UploadTime=datetime.now().strftime('%Y-%m-%d_%H%M')
+    def UploadPost_Handler(self, PostData, Session):
+        if Session is None:
+            return self.ErrorHandler('403 Forbidden', 'Warning! You are attempting to post without logging in. If you wish to make a post, please proceed with the login.')
+
+        PostImageName = ''
+        User = Session.UserInfo['UserUID']
+        UploadTime = datetime.now().strftime('%Y-%m-%d_%H%M')
+        post_file_upload_path = f'resource/PostFileUpload/{User}'
+
         try:
-            os.mkdir(f'resource/PostFileUpload/{User}')
-        except:
-            pass
-        PostFileName=f'resource/PostFileUpload/{User}/_{UploadTime}.html'.replace(':','-')
-        title=PostData['title']
-        content=PostData['content']
-        name=Session.UserInfo['UserName']
-        if PostData['image'] != None:
-            OriginalData=base64.b64decode(PostData['image'])
-            PostImageName=f'_{UploadTime}.png'
-            with open(f'resource/PostFileUpload/{User}/{PostImageName}','wb') as ImageFile:
+            os.makedirs(post_file_upload_path, exist_ok=True)
+        except OSError as e:
+            print(f"Error: {e}")
+
+        PostFileName = f'resource/PostFileUpload/{User}/_{UploadTime}.html'.replace(':', '-')
+        title = PostData['title']
+        content = PostData['content']
+        name = Session.UserInfo['UserName']
+        image =f'_{UploadTime}.png'
+
+        if PostData['image'] is not None:
+            OriginalData = base64.b64decode(PostData['image'])
+            PostImageName = f'_{UploadTime}.png'
+            with open(f'{post_file_upload_path}/{PostImageName}', 'wb') as ImageFile:
                 ImageFile.write(OriginalData)
-        with open(f'resource/html/Post_Form.html','r',encoding='UTF-8') as PostFormFile:
-            with open(PostFileName,'w',encoding='UTF-8') as PostTempFile:
-                PostTempFile.write(PostFormFile.read().format(PostTitle=title,PostContent=content,UserName=name,PostImage=PostImageName))
-                self.ServerPostDB.append({str(User):{'Path':f'/_{UploadTime}.html','title':title,'content':content,'name':name}})
+
+        with open(f'resource/html/Post_Form.html', 'r', encoding='UTF-8') as PostFormFile:
+            with open(PostFileName, 'w', encoding='UTF-8') as PostTempFile:
+                PostTempFile.write(PostFormFile.read().format(PostTitle=title, PostContent=content, UserName=name, PostImage=image))
+                self.ServerPostDB.append({str(User): {'Path': f'/_{UploadTime}.html', 'title': title, 'content': content, 'name': name}})
+
         return self.UpdateFeedPage()
 
     def UpdateFeedPage(self):
-        FeedPost=''
-        FeedPostForm="""
+        FeedPostForm = """
             <div class="mainform">
                 <div class="border rounded-lg p-4 cursor-pointer" onclick="goToPostPage('{0}')">
                     <div class="post">
@@ -227,18 +233,23 @@ class Handler:
                     </div>
                 </div>
             </div>\n"""
-        with open(f'resource/html/Feed_Page.html','r+',encoding='UTF-8') as FeedFormFile:
+
+        with open(f'resource/html/Feed_Page.html', 'r', encoding='UTF-8') as FeedFormFile:
             FeedForm = FeedFormFile.read()
+
+        FeedPost = ''
         if self.ServerPostDB:
             for i in self.ServerPostDB:
-                for ID,Post in i.items():
-                    PostFilePath=f'/PostFileUpload/{ID}'+Post['Path'].replace(':','-')
-                    FeedPost+=FeedPostForm.format(PostFilePath,Post['title'],Post['content'])
-        FeedForm = FeedForm.replace('{FeedPost}',FeedPost).encode('UTF-8')
-        with open(f'resource/html/PostStorage.html','a',encoding='UTF-8') as PostStorage:
+                for ID, Post in i.items():
+                    PostFilePath = f'/PostFileUpload/{ID}' + Post['Path'].replace(':', '-')
+                    FeedPost += FeedPostForm.format(PostFilePath, Post['title'], Post['content'])
+
+        with open(f'resource/html/PostStorage.html', 'w', encoding='UTF-8') as PostStorage:
             PostStorage.write(FeedPost)
-        return PrepareHeader()._response_headers('200 OK',FeedForm) + FeedForm
-        
+
+        FeedForm = FeedForm.replace('{FeedPost}', FeedPost).encode('UTF-8')
+
+        return PrepareHeader()._response_headers('200 OK', FeedForm) + FeedForm
 
     def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
         SessionInfo = Session(SessionValidityDays, UserInfo)
