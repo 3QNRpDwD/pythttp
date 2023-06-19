@@ -1,0 +1,23 @@
+.container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+.post {
+  /* 기본 스타일 */
+  background-color: #f2f2f2;
+  padding: 20px;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.post:hover {
+  background-color: #e0e0e0ab;
+}
+
+.mainform {
+  border-radius: 8px;
+  border: 2px solid #000;
+}

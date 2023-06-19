@@ -1,0 +1,76 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+  }
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #ffffff;
+    border: 1px solid #dddddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .profile {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .profile img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    margin-right: 10px;
+  }
+
+  .post-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .post-content {
+    margin-bottom: 20px;
+  }
+
+  .post-image {
+    max-width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .divider {
+    height: 1px;
+    background-color: #dddddd;
+    margin-bottom: 20px;
+  }
+
+  .interactions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+  }
+
+  .interactions button {
+    padding: 10px 20px;
+    background-color: #0084ff;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    margin-right: 10px;
+    cursor: pointer;
+  }
+
+  .home-button {
+    background-color: #dddddd;
+    color: #333333;
+  }
+
+  .share-button {
+    background-color: #00a7a7;
+  }
+
+  .like-button {
+    background-color: #ff5050;
+  }
