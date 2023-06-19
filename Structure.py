@@ -1,4 +1,4 @@
-import datetime as dt
+from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import secrets
 
@@ -83,22 +83,27 @@ class PrepareHeader:
                '\r\n'.join([f'{key}: {value}' for key, value in headers.items()]) + \
                '\r\n\r\n'
 
-    def _response_headers(self,status_code,Content,Cookie=None):
+    def _response_headers(self,status_code,Content,Cookie=False):
         headers = {
             'Date' : HttpDateTime().http_date_time,
             'Server' : 'longinus',
             'Cache-Control' : 'max-age=3600 ,no-cache ,private',
             'Pragma' : 'no-cache',
             'Content-Length': len(Content),
-            'Set-Cookie' : Cookie
         }
+        if Cookie:
+            headers.update(self.convert_cookie_dict_to_header(Cookie))
         return (f'HTTP/1.1 {status_code}\r\n' + \
         '\r\n'.join([f'{key}: {value}' for key, value in headers.items()]) + \
         '\r\n\r\n').encode()
 
+    def convert_cookie_dict_to_header(self,cookie_dict):
+        cookie_str = '; '.join([f'{key}={value}' for key, value in cookie_dict.items()])
+        return {'Set-Cookie': cookie_str}
+
 class HttpDateTime:
     def __init__(self):
-        now_utc = dt.datetime.utcnow().replace(microsecond=0)
+        now_utc = datetime.utcnow().replace(microsecond=0)
         month_dict = {
             '01': 'Jan',
             '02': 'Feb',
@@ -115,3 +120,12 @@ class HttpDateTime:
         }
         day_list = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         self.http_date_time = f'{day_list[now_utc.weekday()]} {now_utc.day} {month_dict[now_utc.strftime("%m")]} {now_utc.year} {now_utc.strftime("%H:%M:%S")} GMT'
+
+
+    def timestamp_to_http_datetime(self,timestamp):
+        dt = datetime.fromtimestamp(timestamp)
+        http_datetime = dt.strftime('%a, %d %b %Y %H:%M:%S GMT')
+        return http_datetime
+    
+    def datetime_to_http_datetime(self,datetime):
+        return datetime.strftime("%a, %d %b %Y %H:%M:%S GMT")

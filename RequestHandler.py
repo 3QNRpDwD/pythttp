@@ -47,48 +47,74 @@ class Handler:
         self.Thread.ThreadDestructor(thread_name, client_address)
 
     def HandleGETRequest(self, Request):
-        result = parse.unquote(Request[0]).split(' ')[1].replace('\\','/')
+        result = parse.unquote(Request[0]).split(' ')[1].replace('\\', '/')
+        is_valid_cookie, cookie_value, session = self.verifySessionCookie(Request)
+        print(result,is_valid_cookie)
+        
         try:
-            Response = self.HandleTextFileRequest()
-            if ('.png' in result or '.html' in result or '.css' in result  or '.js' in result or '.ico' in result):
-                Response= self.HandleFileRequest(result)
-            elif '/Feed_Page' == result:
-                Response= self.UpdateFeedPage()
-            elif not self.verifySessionCookie(Request)[0]:
-                if ('/SignUp_form' == result or '/Login_form' == result):
-                    print(f'/html{result}')
-                    Response= self.HandleTextFileRequest(f'/html{result}.html')
-            elif (self.verifySessionCookie(Request)[0]):
-                if '/Logout_form' == result:
-                    Response= self.HandleTextFileRequest(f'/html{result}.html')
-                elif '/Account_Info' == result:
-                    Response= self.HandleAccountFileRequest(Request)
+            temporaryResponse = self.HandleTextFileRequest()
+            
+            if any(extension in result for extension in ['.png', '.html', '.css', '.js', '.ico']):
+                temporaryResponse = self.HandleFileRequest(result)
+            elif result == '/Feed_Page':
+                temporaryResponse = self.UpdateFeedPage()
+            elif not is_valid_cookie:
+                if result in ['/SignUp_form', '/Login_form']:
+                    temporaryResponse = self.HandleTextFileRequest(f'/html{result}.html')
+            elif is_valid_cookie:
+                if result == '/Logout_form':
+                    temporaryResponse = self.HandleTextFileRequest(f'/html{result}.html')
+                elif result == '/Account_Info':
+                    temporaryResponse = self.HandleAccountFileRequest(Request)
+            
+            Response = PrepareHeader()._response_headers(temporaryResponse[0], temporaryResponse[1]) + temporaryResponse[1]
+            
+            if is_valid_cookie:
+                cookie = {'SessionID': f'{cookie_value}; Expires={HttpDateTime().timestamp_to_http_datetime((datetime.now() + timedelta(days=1)).timestamp())}; Path=/'}
+                Response = PrepareHeader()._response_headers(temporaryResponse[0], temporaryResponse[1], Cookie=cookie) + temporaryResponse[1]
+            
             return Response
         except FileNotFoundError:
-            with open('resource/html/Error_Form.html','r',encoding='UTF-8') as arg:
-                return self.ErrorHandler('404 Not Found',f'The corresponding {result} file could not be found.')
+            with open('resource/html/Error_Form.html', 'r', encoding='UTF-8') as arg:
+                return self.ErrorHandler('404 Not Found', f'The corresponding {result} file could not be found.')
 
-    def HandlePOSTRequest(self,Request):
-        JsonData=parse.unquote(Request[1].decode())
-        print(JsonData)
-        DictPostData=json.loads(JsonData)
-        Form=DictPostData['Form']
-        Response=self.HandleTextFileRequest()
-        is_valid_cookie,cookie_value,session=self.verifySessionCookie(Request[0])
-        # try:
-        if Form == 'SignUp':
-            Response=self.SignUp_Handler(DictPostData['UserID'],DictPostData['UserEmail'],DictPostData['UserName'],DictPostData['UserPw'],is_valid_cookie)
-        elif Form == 'Login':
-            Response=self.Login_Handler(DictPostData['UserID'],DictPostData['UserPw'],is_valid_cookie)
-        elif Form == 'Logout':
-            Response=self.Logout_Handler(cookie_value)
-        elif Form == 'Account':
-            Response=self.UpdateAccount_Handler(DictPostData,session)
-        elif Form == 'PostUpload':
-            Response=self.UploadPost_Handler(DictPostData,session)
-        # except Exception as e:
-        #     Response=self.ErrorHandler('500 Internal Server Error',e)
-        return Response
+
+    def HandlePOSTRequest(self, Request):
+        JsonData = parse.unquote(Request[1].decode())
+        DictPostData = json.loads(JsonData)
+        Form = DictPostData['Form']
+        Response = self.HandleTextFileRequest()
+        is_valid_cookie, cookie_value, session = self.verifySessionCookie(Request[0])
+
+        try:
+            if Form == 'SignUp':
+                temporaryResponse = self.SignUp_Handler(DictPostData['UserID'], DictPostData['UserEmail'], DictPostData['UserName'], DictPostData['UserPw'], is_valid_cookie)
+            elif Form == 'Login':
+                temporaryResponse = self.Login_Handler(DictPostData['UserID'], DictPostData['UserPw'], is_valid_cookie)
+                if temporaryResponse[0] == '200 OK':
+                    return PrepareHeader()._response_headers(temporaryResponse[0], temporaryResponse[1], Cookie=temporaryResponse[2]) + temporaryResponse[1]
+            elif Form == 'Logout':
+                temporaryResponse = self.Logout_Handler(is_valid_cookie,session)
+                if temporaryResponse[0] == '200 OK':
+                    return PrepareHeader()._response_headers(temporaryResponse[0], temporaryResponse[1], Cookie=temporaryResponse[2]) + temporaryResponse[1]
+            elif Form == 'Account':
+                temporaryResponse = self.UpdateAccount_Handler(DictPostData, session)
+            elif Form == 'PostUpload':
+                temporaryResponse = self.UploadPost_Handler(DictPostData, session)
+
+            Response = PrepareHeader()._response_headers(temporaryResponse[0], temporaryResponse[1]) + temporaryResponse[1]
+
+            if is_valid_cookie:
+                cookie = {'SessionID': f'{cookie_value}; Expires={HttpDateTime().timestamp_to_http_datetime((datetime.now() + timedelta(days=1)).timestamp())}; Path=/'}
+                Response = PrepareHeader()._response_headers(temporaryResponse[0], temporaryResponse[1], Cookie=cookie) + temporaryResponse[1]
+
+            return Response
+        
+        except Exception as e:
+            #Uncomment the following lines if you want to handle exceptions in a centralized manner
+            Response = self.ErrorHandler('500 Internal Server Error', e)
+            return Response
+
 
     def verifySessionCookie(self,RequestData:list):
         for data in RequestData:
@@ -98,23 +124,38 @@ class Handler:
                     if Values==Session.SessionToken:
                         return True, Values ,Session
         return False, None, None
+    
+    def verifySessionExpires(self,Session):
+        return False, None, None
 
     def HandleFileRequest(self,file='/img/a.png'):
         with open(f'resource{file}', 'rb') as ImgFile:
             Response_file=ImgFile.read()
-            return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
+            return '200 OK',Response_file
         
-    def HandleTextFileRequest(self,flie='/html/Index.html',Cookie=None):
+    def HandleTextFileRequest(self,flie='/html/Index.html'):
         with open(f'resource{flie}','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read().encode('UTF-8')
-        return PrepareHeader()._response_headers('200 OK',Response_file,Cookie) + Response_file
+        return '200 OK',Response_file
+    
+    def HandleLogoutRequest(self,session):
+        with open(f'resource/html/Logout_Action.html','r',encoding='UTF-8') as TextFile:
+            Response_file=TextFile.read().encode('UTF-8')
+        cookie={'SessionID':f'{session.SessionToken}; Expires={HttpDateTime().timestamp_to_http_datetime((datetime.now() - timedelta(days=1)).timestamp())}; Path=/'}
+        return '200 OK',Response_file,cookie
+    
+    def HandleLoginRequest(self,session):
+        with open(f'resource/html/Login_Action.html','r',encoding='UTF-8') as TextFile:
+            Response_file=TextFile.read().encode('UTF-8')
+        cookie={'SessionID':f'{session.SessionToken}; Expires={session.SessionValidity}; Path=/'}
+        return '200 OK',Response_file,cookie
     
     def ErrorHandler(self,Error_code,Error_msg):
         with open(f'resource/html/Error_Form.html','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read()
             Response_file=Response_file.format(Error_code,Error_msg).encode('utf-8')
         self.log(f"[ Handle Error ] ==> Code : \033[35m{Error_code}\033[0m")
-        return PrepareHeader()._response_headers(Error_code,Response_file) + Response_file
+        return Error_code,Response_file
     
     def addFormatToHTML(self,HtmlText : str, FormatData : dict, style : str):
         Format=''
@@ -149,30 +190,24 @@ class Handler:
         # Check user credentials and create new session
         for db in self.ServerUsersDB:
             if (UserUID == db.UserUID and UserPw == db.UserPw):
-                session_id = self.RegisterUserSession(7, {'UserUID': UserUID, 'DataBaseID':db.DataBaseID, 'UserName':db.UserName})
-                self.log(f"[ New Session Constructed ] ==> SessionID: \033[96m{session_id}\033[0m")
-                return self.HandleTextFileRequest('/html/Login_Action.html',Cookie=f'SessionID = {session_id}')       
+                session = self.RegisterUserSession(1, {'UserUID': UserUID, 'DataBaseID':db.DataBaseID, 'UserName':db.UserName})
+                self.log(f"[ New Session Constructed ] ==> SessionID: \033[96m{session.SessionToken}\033[0m")
+                return self.HandleLoginRequest(session)
         return self.ErrorHandler('422 Unprocessable Entity',f'User ID or password does not exist: {UserID, UserPw}')
     
-    def Logout_Handler(self,SessionID):
-        for Session in self.Sessions:
-            if Session.SessionToken == SessionID:
-                self.Sessions.remove(Session)
-                self.log(f"[ Session Destructed ] ==> SessionID : \033[96m{SessionID}\033[0m")
-                return self.HandleTextFileRequest('/html/Logout_Action.html')
+    def Logout_Handler(self,is_valid_cookie,session):
+        if is_valid_cookie:
+            self.Sessions.remove(session)
+            self.log(f"[ Session Destructed ] ==> SessionID : \033[96m{session.SessionToken}\033[0m")
+            return self.HandleLogoutRequest(session)
         return self.ErrorHandler('403 Forbidden',f'To log out, you must first log in. Please verify your account information and log in before attempting to log out')
     
     def HandleAccountFileRequest(self,Request):
         DataBase=self.getDatabase(self.verifySessionCookie(Request)[2].UserInfo['DataBaseID'])
-        Username=DataBase.UserName
-        UserUID=DataBase.UserUID
-        Useremail=DataBase.UserEmail
-        UserBirthDate=DataBase.UserBirthDate
-        UserPw=DataBase.UserPw
         with open(f'resource/html/Account_Info.html','r',encoding='UTF-8') as TextFile:
             Response_file=TextFile.read()
-            Response_file=Response_file.format(UserName=Username,UserUID=UserUID,UserPw=UserPw,UserEmail=Useremail,BirthDate=UserBirthDate).encode('utf-8')
-        return PrepareHeader()._response_headers('200 OK',Response_file) + Response_file
+            Response_file=Response_file.format(UserName=DataBase.UserName,UserUID=DataBase.UserUID,UserPw=DataBase.UserPw,UserEmail=DataBase.UserEmail,BirthDate=DataBase.UserBirthDate).encode('utf-8')
+        return '200 OK',Response_file
     
     def UpdateAccount_Handler(self,newUserInfo,session):
         DataBase=self.getDatabase(session.UserInfo['DataBaseID'])
@@ -249,12 +284,12 @@ class Handler:
 
         FeedForm = FeedForm.replace('{FeedPost}', FeedPost).encode('UTF-8')
 
-        return PrepareHeader()._response_headers('200 OK', FeedForm) + FeedForm
+        return '200 OK', FeedForm
 
     def RegisterUserSession(self,  SessionValidityDays: str, UserInfo: dict):
         SessionInfo = Session(SessionValidityDays, UserInfo)
         self.Sessions.add(SessionInfo)
-        return SessionInfo.SessionToken
+        return SessionInfo
 
     def HandleSaveDB(self):
         with open(f'resource/ServerUserDB.DB','wb') as DBfile:
@@ -293,7 +328,7 @@ class Session:
         Initializes the SessionToken, SessionValidity, and SessionDict attributes after object creation.
         """
         self.SessionToken = SessionID(16).Token
-        self.SessionValidity = (datetime.now() + timedelta(days=self.SessionValidityDays)).timestamp()
+        self.SessionValidity = HttpDateTime().datetime_to_http_datetime(datetime.now() + timedelta(days=self.SessionValidityDays))
         # self.SessionDict['SessionID'] = self.SessionToken
         # self.SessionDict['SessionValidity'] = self.SessionValidity
         # self.SessionDict['UserInfo'] = self.UserInfo

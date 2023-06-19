@@ -1,6 +1,4 @@
 import socket
-import select
-from urllib import request
 from urllib import parse
 from .Thread_Manager import *
 from .Structure import *
